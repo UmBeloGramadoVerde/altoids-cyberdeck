@@ -21,9 +21,9 @@ from .display import Display
 from .input_buttons import ButtonEvent, ButtonInput
 from .input_keyboard import KeyboardEvent, KeyboardInput
 from .sleep import SleepManager
-from .simulator import SimulatorDisplay
 from .terminal import TmuxManager
 from .wifi import WifiManager
+from .webviewer import WebViewer
 from .ui import HomeScreen, Screen, ScreenContext, SystemScreen, TerminalScreen
 from .ui.widgets import draw_label
 from .ui.widgets import draw_button_bar
@@ -36,15 +36,9 @@ class TimedValue:
 
 
 class AltoidsApp:
-    def __init__(self, config: AltoidsConfig, headless: bool = False, simulator: bool = False, simulator_scale: int = 3) -> None:
+    def __init__(self, config: AltoidsConfig, headless: bool = False, web_viewer: bool = False, web_host: str = "127.0.0.1", web_port: int = 8765) -> None:
         self.config = config
-        self.simulator = SimulatorDisplay(config.display.width, config.display.height, scale=simulator_scale) if simulator else None
-        self.display = Display(
-            config.display.width,
-            config.display.height,
-            config.display.backlight_brightness,
-            simulator=self.simulator,
-        )
+        self.display = Display(config.display.width, config.display.height, config.display.backlight_brightness)
         self.buffer = Image.new("RGB", (config.display.width, config.display.height), BG)
         self.draw = ImageDraw.Draw(self.buffer)
         self.font = self._load_font(config.font_path, config.ui.font_size)
@@ -76,6 +70,7 @@ class AltoidsApp:
         self.needs_redraw = True
         self._system_snapshot_cache: TimedValue | None = None
         self.command_mode_deadline = 0.0
+        self.web_viewer = WebViewer(host=web_host, port=web_port) if web_viewer else None
 
     def _load_font(self, path: Path, size: int) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
         if path.exists():
@@ -269,6 +264,8 @@ class AltoidsApp:
             self.font,
         )
         self.display.update(self.buffer)
+        if self.web_viewer is not None:
+            self.web_viewer.update(self.buffer)
         self.needs_redraw = False
 
     def run(self, max_frames: int | None = None) -> int:
@@ -281,14 +278,14 @@ class AltoidsApp:
 
             for event in self.button_input.poll():
                 self.handle_button_event(event)
-            if self.simulator is not None:
-                sim_events = self.simulator.poll_events()
-                for event in sim_events.button_events:
-                    self.handle_button_event(event)
-                for event in sim_events.keyboard_events:
-                    self.handle_keyboard_event(event)
             for event in self.keyboard_input.poll():
                 self.handle_keyboard_event(event)
+            if self.web_viewer is not None:
+                web_events = self.web_viewer.poll_events()
+                for event in web_events.button_events:
+                    self.handle_button_event(event)
+                for event in web_events.keyboard_events:
+                    self.handle_keyboard_event(event)
 
             self.bluetooth_status = self.bluetooth_monitor.poll()
             if self.command_mode_deadline and not self.command_mode_active:
@@ -313,13 +310,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Altoids cyberdeck UI")
     parser.add_argument("--config", default=None, help="Path to altoids.toml")
     parser.add_argument("--frames", type=int, default=None, help="Render this many frames and exit")
-    parser.add_argument("--simulator", action="store_true", help="Run with a desktop simulator window instead of hardware display")
-    parser.add_argument("--sim-scale", type=int, default=3, help="Integer pixel scale for the simulator window")
+    parser.add_argument("--web-viewer", action="store_true", help="Serve the UI over HTTP for browser-based viewing and control")
+    parser.add_argument("--web-host", default="127.0.0.1", help="Host/interface for the web viewer")
+    parser.add_argument("--web-port", type=int, default=8765, help="Port for the web viewer")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     config = load_config(args.config)
-    app = AltoidsApp(config=config, simulator=args.simulator, simulator_scale=args.sim_scale)
+    app = AltoidsApp(config=config, web_viewer=args.web_viewer, web_host=args.web_host, web_port=args.web_port)
+    if app.web_viewer is not None:
+        print(f"Web viewer available at {app.web_viewer.base_url}")
     return app.run(max_frames=args.frames)

@@ -67,8 +67,7 @@ The app loop does four things:
 3. Renders the active screen plus the bottom button bar.
 4. Pushes the frame to the display backend.
 
-The current implementation uses a `Display` abstraction in [altoids/display.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/display.py:1). On Pi hardware it should use `displayhatmini`. When that module is missing, it falls back to saving the latest rendered frame to `artifacts/last-frame.png`.
-You can also run a desktop simulator window for development without the physical display.
+The current implementation uses a `Display` abstraction in [altoids/display.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/display.py:1). On Pi hardware it should use `displayhatmini`. When that module is missing, it falls back to saving the latest rendered frame to `artifacts/last-frame.png`. For remote development without the physical display, a lightweight browser-based viewer is also available.
 
 ## Screens
 
@@ -229,18 +228,24 @@ Run the app with:
 python3 -m altoids
 ```
 
-Run the desktop simulator with:
+Run the browser-based viewer with:
 
 ```bash
-python3 -m altoids --simulator
+python3 -m altoids --web-viewer --web-host 0.0.0.0 --web-port 8765
 ```
 
-Simulator controls:
+Then open the Pi from your laptop:
 
-- `1` `2` `3` `4` = buttons `A` `B` `X` `Y`
-- `Alt+1` `Alt+2` `Alt+3` `Alt+4` = long-press `A` `B` `X` `Y`
-- host `Cmd`/`Windows` key = cyberdeck command mode
-- printable keys and common navigation keys are forwarded as keyboard input
+```text
+http://<pi-ip>:8765/
+```
+
+Web viewer features:
+
+- live frame refresh in the browser
+- clickable `A`, `B`, `X`, `Y` buttons
+- clickable long-press variants for `A`, `B`, `X`, `Y`
+- browser keyboard forwarding for letters, Enter, Backspace, Tab, Escape, arrows, and the host `Meta` key
 
 For a short render smoke test:
 
