@@ -208,15 +208,14 @@ def run_guided_probe(device: evdev.InputDevice) -> list[dict[str, object]]:
         Guided keyboard probe starting.
 
         Device: {device.name!r} at {device.path}
-        Each step works like this:
-          - press Enter here in SSH to arm the capture
-          - then perform the requested key or combo on the M4
+        The probe will run straight through.
+        For each step:
+          - read the instruction printed in SSH
+          - perform the requested key or combo on the M4
           - wait for the script to print the observed result
 
-        Controls:
-          - Enter = run the case
-          - s = skip the case
-          - q = stop early and write the partial report
+        If you miss a step or press the wrong thing, let it continue.
+        We can interpret the raw report afterward.
         """
     ).strip())
     print()
@@ -226,24 +225,7 @@ def run_guided_probe(device: evdev.InputDevice) -> list[dict[str, object]]:
         print(f"  {case.prompt}")
         if case.note:
             print(f"  Note: {case.note}")
-        action = input("  Enter to arm, s to skip, q to quit: ").strip().lower()
-        if action == "q":
-            break
-        if action == "s":
-            results.append(
-                {
-                    "slug": case.slug,
-                    "prompt": case.prompt,
-                    "note": case.note,
-                    "status": "skipped",
-                    "events": [],
-                    "summary": {},
-                }
-            )
-            print("  skipped\n")
-            continue
-
-        print("  armed: perform the key or combo on the M4 now...")
+        print("  perform the key or combo on the M4 now...")
         events = wait_for_case_events(device)
         summary = summarize_events(events)
         status = "ok" if events else "no-events"
@@ -278,12 +260,9 @@ def run_free_explore(device: evdev.InputDevice, known_keycodes: set[str]) -> dic
           - media-like combos
           - OS-specific keys
           - any weird legends printed on the keycaps
-
-        Press Enter here in SSH to start the free exploration window.
         """
     ).strip())
-    input()
-    print("Exploration armed: press extra keys on the M4 now...")
+    print("Exploration started: press extra keys on the M4 now...")
 
     observed: list[ObservedEvent] = []
     deadline = time.monotonic() + FREE_EXPLORE_SECONDS

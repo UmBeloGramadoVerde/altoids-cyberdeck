@@ -38,9 +38,11 @@ The script will:
 
 - list candidate evdev keyboard devices
 - prefer a device whose name contains `M4`
-- guide you case by case
+- guide you case by case without per-step prompts
 - include a free-exploration phase for undocumented keys and combos
 - write both JSON and Markdown reports into `artifacts/keyboard-probe/`
+
+Once the guided run starts, it advances automatically. Read the next instruction in SSH, press that key or combo on the keyboard, and let the script continue. If you miss a step, keep going; the raw report is still useful.
 
 ## Key Sequences I Want Tested
 
