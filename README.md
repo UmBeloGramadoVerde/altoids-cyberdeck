@@ -68,6 +68,7 @@ The app loop does four things:
 4. Pushes the frame to the display backend.
 
 The current implementation uses a `Display` abstraction in [altoids/display.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/display.py:1). On Pi hardware it should use `displayhatmini`. When that module is missing, it falls back to saving the latest rendered frame to `artifacts/last-frame.png`.
+You can also run a desktop simulator window for development without the physical display.
 
 ## Screens
 
@@ -227,6 +228,19 @@ Run the app with:
 ```bash
 python3 -m altoids
 ```
+
+Run the desktop simulator with:
+
+```bash
+python3 -m altoids --simulator
+```
+
+Simulator controls:
+
+- `1` `2` `3` `4` = buttons `A` `B` `X` `Y`
+- `Alt+1` `Alt+2` `Alt+3` `Alt+4` = long-press `A` `B` `X` `Y`
+- host `Cmd`/`Windows` key = cyberdeck command mode
+- printable keys and common navigation keys are forwarded as keyboard input
 
 For a short render smoke test:
 

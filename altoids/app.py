@@ -21,6 +21,7 @@ from .display import Display
 from .input_buttons import ButtonEvent, ButtonInput
 from .input_keyboard import KeyboardEvent, KeyboardInput
 from .sleep import SleepManager
+from .simulator import SimulatorDisplay
 from .terminal import TmuxManager
 from .wifi import WifiManager
 from .ui import HomeScreen, Screen, ScreenContext, SystemScreen, TerminalScreen
@@ -35,9 +36,15 @@ class TimedValue:
 
 
 class AltoidsApp:
-    def __init__(self, config: AltoidsConfig, headless: bool = False) -> None:
+    def __init__(self, config: AltoidsConfig, headless: bool = False, simulator: bool = False, simulator_scale: int = 3) -> None:
         self.config = config
-        self.display = Display(config.display.width, config.display.height, config.display.backlight_brightness)
+        self.simulator = SimulatorDisplay(config.display.width, config.display.height, scale=simulator_scale) if simulator else None
+        self.display = Display(
+            config.display.width,
+            config.display.height,
+            config.display.backlight_brightness,
+            simulator=self.simulator,
+        )
         self.buffer = Image.new("RGB", (config.display.width, config.display.height), BG)
         self.draw = ImageDraw.Draw(self.buffer)
         self.font = self._load_font(config.font_path, config.ui.font_size)
@@ -274,6 +281,12 @@ class AltoidsApp:
 
             for event in self.button_input.poll():
                 self.handle_button_event(event)
+            if self.simulator is not None:
+                sim_events = self.simulator.poll_events()
+                for event in sim_events.button_events:
+                    self.handle_button_event(event)
+                for event in sim_events.keyboard_events:
+                    self.handle_keyboard_event(event)
             for event in self.keyboard_input.poll():
                 self.handle_keyboard_event(event)
 
@@ -300,11 +313,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Altoids cyberdeck UI")
     parser.add_argument("--config", default=None, help="Path to altoids.toml")
     parser.add_argument("--frames", type=int, default=None, help="Render this many frames and exit")
+    parser.add_argument("--simulator", action="store_true", help="Run with a desktop simulator window instead of hardware display")
+    parser.add_argument("--sim-scale", type=int, default=3, help="Integer pixel scale for the simulator window")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     config = load_config(args.config)
-    app = AltoidsApp(config=config)
+    app = AltoidsApp(config=config, simulator=args.simulator, simulator_scale=args.sim_scale)
     return app.run(max_frames=args.frames)

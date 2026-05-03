@@ -124,6 +124,7 @@ MODIFIER_KEYS = {
 @dataclass(slots=True)
 class KeyboardEvent:
     key: str
+    raw_key: str
     text: str = ""
     ctrl: bool = False
     alt: bool = False
@@ -212,7 +213,7 @@ class KeyboardInput:
         ctrl = "ctrl" in self._modifier_state
         alt = "alt" in self._modifier_state
         if keycode in SPECIAL_KEYS:
-            return KeyboardEvent(key=SPECIAL_KEYS[keycode], ctrl=ctrl, alt=alt, shift=shift)
+            return KeyboardEvent(key=SPECIAL_KEYS[keycode], raw_key=keycode, ctrl=ctrl, alt=alt, shift=shift)
         text = KEY_TEXT.get(keycode)
         if text is None:
             return None
@@ -221,4 +222,5 @@ class KeyboardInput:
                 text = text.upper()
             else:
                 text = SHIFTED_TEXT.get(text, text)
-        return KeyboardEvent(key=text.lower() if len(text) == 1 and text.isalpha() else text, text=text, ctrl=ctrl, alt=alt, shift=shift)
+        logical_key = text.lower() if len(text) == 1 and text.isalpha() else text
+        return KeyboardEvent(key=logical_key, raw_key=keycode, text=text, ctrl=ctrl, alt=alt, shift=shift)
