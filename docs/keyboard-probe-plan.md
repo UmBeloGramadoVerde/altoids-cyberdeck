@@ -39,6 +39,7 @@ The script will:
 - list candidate evdev keyboard devices
 - prefer a device whose name contains `M4`
 - guide you case by case
+- include a free-exploration phase for undocumented keys and combos
 - write both JSON and Markdown reports into `artifacts/keyboard-probe/`
 
 ## Key Sequences I Want Tested
@@ -97,8 +98,16 @@ These are intentionally near the end because they may change the keyboard’s mo
 The vendor notes are incomplete. I also want:
 
 - two additional `Fn` combos that are visibly printed on the keyboard but not already in the list above
+- a short free-exploration period where you press any extra printed combos or odd keys you can find
 
 When these two “extra Fn” cases appear in the script, choose undocumented printed combos and note which physical combo you used in your later report.
+
+After the guided cases, the script enters a timed free-exploration phase. Use that to:
+
+- try any remaining `Fn` legends
+- try keys that look OS-specific
+- try anything that seems media-related or unusual
+- intentionally press odd combinations that might expose hidden Linux-visible keycodes
 
 ## What To Look For In The Report
 
@@ -111,6 +120,7 @@ After running the probe, the important things to check are:
 - Do `Alt + C` / `Alt + S` produce plain Linux modifier sequences or locale-transformed characters?
 - Does `Ctrl + Space` emit normal key events or get swallowed by keyboard firmware?
 - Are Android mode and Windows mode different in how modifiers are reported?
+- Does the free-exploration phase reveal keycodes we did not explicitly ask for?
 
 ## Expected Outcome
 

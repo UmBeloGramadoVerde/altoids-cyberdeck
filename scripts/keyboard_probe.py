@@ -16,6 +16,7 @@ import evdev
 
 IDLE_TIMEOUT_SECONDS = 1.0
 ARM_TIMEOUT_SECONDS = 20.0
+FREE_EXPLORE_SECONDS = 45.0
 
 
 @dataclass(slots=True)
@@ -264,6 +265,69 @@ def run_guided_probe(device: evdev.InputDevice) -> list[dict[str, object]]:
     return results
 
 
+def run_free_explore(device: evdev.InputDevice, known_keycodes: set[str]) -> dict[str, object]:
+    print(textwrap.dedent(
+        f"""
+        Free exploration phase.
+
+        For the next {FREE_EXPLORE_SECONDS:.0f} seconds, press any extra keys or combinations
+        you can find on the keyboard that were not explicitly covered by the guided plan.
+
+        Good candidates:
+          - undocumented Fn combos
+          - media-like combos
+          - OS-specific keys
+          - any weird legends printed on the keycaps
+
+        Press Enter here in SSH to start the free exploration window.
+        """
+    ).strip())
+    input()
+    print("Exploration armed: press extra keys on the M4 now...")
+
+    observed: list[ObservedEvent] = []
+    deadline = time.monotonic() + FREE_EXPLORE_SECONDS
+    while time.monotonic() < deadline:
+        timeout = min(0.25, max(0.0, deadline - time.monotonic()))
+        ready, _, _ = select.select([device.fd], [], [], timeout)
+        if not ready:
+            continue
+        for raw_event in device.read():
+            if raw_event.type != evdev.ecodes.EV_KEY:
+                continue
+            key_event = evdev.categorize(raw_event)
+            keycode = key_event.keycode
+            if isinstance(keycode, list):
+                keycode = ",".join(keycode)
+            observed.append(
+                ObservedEvent(
+                    timestamp=raw_event.timestamp(),
+                    keycode=str(keycode),
+                    keystate=keystate_name(raw_event.value),
+                    scancode=key_event.scancode,
+                    value=raw_event.value,
+                )
+            )
+
+    summary = summarize_events(observed)
+    discovered = [
+        keycode for keycode in summary["unique_pressed_keycodes"]
+        if keycode not in known_keycodes
+    ]
+    print(f"Exploration finished. Newly seen keycodes: {discovered}\n")
+    return {
+        "slug": "free-explore",
+        "prompt": f"Press any additional undocumented keys or combos for {FREE_EXPLORE_SECONDS:.0f} seconds.",
+        "note": "Use this to discover unexpected Linux-visible keycodes that were not in the guided script.",
+        "status": "ok" if observed else "no-events",
+        "events": [asdict(event) for event in observed],
+        "summary": {
+            **summary,
+            "new_keycodes_vs_guided": discovered,
+        },
+    }
+
+
 def write_reports(output_dir: Path, device: evdev.InputDevice, results: list[dict[str, object]]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
@@ -324,6 +388,12 @@ def main() -> int:
 
     try:
         results = run_guided_probe(device)
+        known_keycodes: set[str] = set()
+        for result in results:
+            summary = result.get("summary") or {}
+            for keycode in summary.get("unique_pressed_keycodes", []):
+                known_keycodes.add(keycode)
+        results.append(run_free_explore(device, known_keycodes))
     finally:
         if grabbed:
             device.ungrab()
