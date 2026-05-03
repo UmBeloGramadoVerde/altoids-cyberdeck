@@ -1,0 +1,4970 @@
+{
+  "generated_at": "20260503T143735Z",
+  "device_name": "M4 Keyboard",
+  "device_path": "/dev/input/event2",
+  "results": [
+    {
+      "slug": "wake-any-key",
+      "prompt": "Press any single key to confirm the keyboard is awake and reconnecting cleanly.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818717.52599,
+          "keycode": "KEY_F",
+          "keystate": "down",
+          "scancode": 33,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818717.649645,
+          "keycode": "KEY_F",
+          "keystate": "up",
+          "scancode": 33,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_F"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_F"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "meta-left-or-right",
+      "prompt": "Press the Windows/Cmd key once.",
+      "note": "This tells us whether the cyberdeck meta key arrives as KEY_LEFTMETA/KEY_RIGHTMETA.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818725.119872,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "down",
+          "scancode": 125,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818725.254819,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "up",
+          "scancode": 125,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_LEFTMETA"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_LEFTMETA"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "tab",
+      "prompt": "Press Tab once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818729.754977,
+          "keycode": "KEY_TAB",
+          "keystate": "down",
+          "scancode": 15,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818729.878567,
+          "keycode": "KEY_TAB",
+          "keystate": "up",
+          "scancode": 15,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_TAB"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_TAB"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "backspace",
+      "prompt": "Press Backspace once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818733.93999,
+          "keycode": "KEY_BACKSPACE",
+          "keystate": "down",
+          "scancode": 14,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818734.052373,
+          "keycode": "KEY_BACKSPACE",
+          "keystate": "up",
+          "scancode": 14,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_BACKSPACE"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_BACKSPACE"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "enter",
+      "prompt": "Press Enter once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818736.550044,
+          "keycode": "KEY_ENTER",
+          "keystate": "down",
+          "scancode": 28,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818736.651252,
+          "keycode": "KEY_ENTER",
+          "keystate": "up",
+          "scancode": 28,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_ENTER"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_ENTER"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "space",
+      "prompt": "Press Space once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818738.788757,
+          "keycode": "KEY_SPACE",
+          "keystate": "down",
+          "scancode": 57,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818738.912404,
+          "keycode": "KEY_SPACE",
+          "keystate": "up",
+          "scancode": 57,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_SPACE"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_SPACE"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "shift-left-or-right",
+      "prompt": "Press Shift once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818741.680044,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "down",
+          "scancode": 42,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818741.781193,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "up",
+          "scancode": 42,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_LEFTSHIFT"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_LEFTSHIFT"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "ctrl",
+      "prompt": "Press Ctrl once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818745.437551,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "down",
+          "scancode": 97,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818745.55003,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "up",
+          "scancode": 97,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_RIGHTCTRL"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_RIGHTCTRL"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "alt",
+      "prompt": "Press Alt once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818748.452601,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "down",
+          "scancode": 100,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818748.576586,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "up",
+          "scancode": 100,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_RIGHTALT"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_RIGHTALT"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "a",
+      "prompt": "Press A once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818750.9389,
+          "keycode": "KEY_A",
+          "keystate": "down",
+          "scancode": 30,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818751.04005,
+          "keycode": "KEY_A",
+          "keystate": "up",
+          "scancode": 30,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_A"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_A"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "b",
+      "prompt": "Press B once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818753.53762,
+          "keycode": "KEY_B",
+          "keystate": "down",
+          "scancode": 48,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818753.683818,
+          "keycode": "KEY_B",
+          "keystate": "up",
+          "scancode": 48,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_B"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_B"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "c",
+      "prompt": "Press C once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818755.641407,
+          "keycode": "KEY_C",
+          "keystate": "down",
+          "scancode": 46,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818755.765028,
+          "keycode": "KEY_C",
+          "keystate": "up",
+          "scancode": 46,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_C"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_C"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "d",
+      "prompt": "Press D once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818757.677677,
+          "keycode": "KEY_D",
+          "keystate": "down",
+          "scancode": 32,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818757.823826,
+          "keycode": "KEY_D",
+          "keystate": "up",
+          "scancode": 32,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_D"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_D"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "e",
+      "prompt": "Press E once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818759.421424,
+          "keycode": "KEY_E",
+          "keystate": "down",
+          "scancode": 18,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818759.545191,
+          "keycode": "KEY_E",
+          "keystate": "up",
+          "scancode": 18,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_E"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_E"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "f",
+      "prompt": "Press F once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818761.570199,
+          "keycode": "KEY_F",
+          "keystate": "down",
+          "scancode": 33,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818761.716392,
+          "keycode": "KEY_F",
+          "keystate": "up",
+          "scancode": 33,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_F"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_F"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "g",
+      "prompt": "Press G once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818763.763993,
+          "keycode": "KEY_G",
+          "keystate": "down",
+          "scancode": 34,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818763.887655,
+          "keycode": "KEY_G",
+          "keystate": "up",
+          "scancode": 34,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818763.888909,
+          "keycode": "KEY_G",
+          "keystate": "down",
+          "scancode": 34,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818763.922574,
+          "keycode": "KEY_G",
+          "keystate": "up",
+          "scancode": 34,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_G",
+          "KEY_G"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_G"
+        ],
+        "event_count": 4
+      }
+    },
+    {
+      "slug": "h",
+      "prompt": "Press H once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818765.608994,
+          "keycode": "KEY_H",
+          "keystate": "down",
+          "scancode": 35,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818765.710134,
+          "keycode": "KEY_H",
+          "keystate": "up",
+          "scancode": 35,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_H"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_H"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "i",
+      "prompt": "Press I once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818767.454001,
+          "keycode": "KEY_I",
+          "keystate": "down",
+          "scancode": 23,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818767.577911,
+          "keycode": "KEY_I",
+          "keystate": "up",
+          "scancode": 23,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_I"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_I"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "j",
+      "prompt": "Press J once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818769.479068,
+          "keycode": "KEY_J",
+          "keystate": "down",
+          "scancode": 36,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818769.580425,
+          "keycode": "KEY_J",
+          "keystate": "up",
+          "scancode": 36,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_J"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_J"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "k",
+      "prompt": "Press K once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818771.279051,
+          "keycode": "KEY_K",
+          "keystate": "down",
+          "scancode": 37,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818771.447718,
+          "keycode": "KEY_K",
+          "keystate": "up",
+          "scancode": 37,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_K"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_K"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "l",
+      "prompt": "Press L once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818773.101546,
+          "keycode": "KEY_L",
+          "keystate": "down",
+          "scancode": 38,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818773.270231,
+          "keycode": "KEY_L",
+          "keystate": "up",
+          "scancode": 38,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_L"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_L"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "m",
+      "prompt": "Press M once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818775.959096,
+          "keycode": "KEY_M",
+          "keystate": "down",
+          "scancode": 50,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818776.150255,
+          "keycode": "KEY_M",
+          "keystate": "up",
+          "scancode": 50,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_M"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_M"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "n",
+      "prompt": "Press N once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818777.927852,
+          "keycode": "KEY_N",
+          "keystate": "down",
+          "scancode": 49,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818778.05149,
+          "keycode": "KEY_N",
+          "keystate": "up",
+          "scancode": 49,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_N"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_N"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "o",
+      "prompt": "Press O once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818779.435383,
+          "keycode": "KEY_O",
+          "keystate": "down",
+          "scancode": 24,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818779.581655,
+          "keycode": "KEY_O",
+          "keystate": "up",
+          "scancode": 24,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_O"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_O"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "p",
+      "prompt": "Press P once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818781.08919,
+          "keycode": "KEY_P",
+          "keystate": "down",
+          "scancode": 25,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818781.212856,
+          "keycode": "KEY_P",
+          "keystate": "up",
+          "scancode": 25,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_P"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_P"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "q",
+      "prompt": "Press Q once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818782.630445,
+          "keycode": "KEY_Q",
+          "keystate": "down",
+          "scancode": 16,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818782.799123,
+          "keycode": "KEY_Q",
+          "keystate": "up",
+          "scancode": 16,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_Q"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_Q"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "r",
+      "prompt": "Press R once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818784.497969,
+          "keycode": "KEY_R",
+          "keystate": "down",
+          "scancode": 19,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818784.666711,
+          "keycode": "KEY_R",
+          "keystate": "up",
+          "scancode": 19,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_R"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_R"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "s",
+      "prompt": "Press S once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818786.309217,
+          "keycode": "KEY_S",
+          "keystate": "down",
+          "scancode": 31,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818786.432873,
+          "keycode": "KEY_S",
+          "keystate": "up",
+          "scancode": 31,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_S"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_S"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "t",
+      "prompt": "Press T once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818788.176734,
+          "keycode": "KEY_T",
+          "keystate": "down",
+          "scancode": 20,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818788.300379,
+          "keycode": "KEY_T",
+          "keystate": "up",
+          "scancode": 20,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_T"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_T"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "u",
+      "prompt": "Press U once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818790.212999,
+          "keycode": "KEY_U",
+          "keystate": "down",
+          "scancode": 22,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818790.336647,
+          "keycode": "KEY_U",
+          "keystate": "up",
+          "scancode": 22,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_U"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_U"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "v",
+      "prompt": "Press V once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818791.799265,
+          "keycode": "KEY_V",
+          "keystate": "down",
+          "scancode": 47,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818791.900431,
+          "keycode": "KEY_V",
+          "keystate": "up",
+          "scancode": 47,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_V"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_V"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "w",
+      "prompt": "Press W once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818793.374267,
+          "keycode": "KEY_W",
+          "keystate": "down",
+          "scancode": 17,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818793.486674,
+          "keycode": "KEY_W",
+          "keystate": "up",
+          "scancode": 17,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_W"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_W"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "x",
+      "prompt": "Press X once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818795.883063,
+          "keycode": "KEY_X",
+          "keystate": "down",
+          "scancode": 45,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818795.984207,
+          "keycode": "KEY_X",
+          "keystate": "up",
+          "scancode": 45,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_X"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_X"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "y",
+      "prompt": "Press Y once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818798.033088,
+          "keycode": "KEY_Y",
+          "keystate": "down",
+          "scancode": 21,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818798.166714,
+          "keycode": "KEY_Y",
+          "keystate": "up",
+          "scancode": 21,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_Y"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_Y"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "z",
+      "prompt": "Press Z once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818800.439337,
+          "keycode": "KEY_Z",
+          "keystate": "down",
+          "scancode": 44,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818800.563071,
+          "keycode": "KEY_Z",
+          "keystate": "up",
+          "scancode": 44,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_Z"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_Z"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "1",
+      "prompt": "Press 1 once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818802.745619,
+          "keycode": "KEY_1",
+          "keystate": "down",
+          "scancode": 2,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818802.880514,
+          "keycode": "KEY_1",
+          "keystate": "up",
+          "scancode": 2,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_1"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_1"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "2",
+      "prompt": "Press 2 once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818804.253137,
+          "keycode": "KEY_2",
+          "keystate": "down",
+          "scancode": 3,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818804.376783,
+          "keycode": "KEY_2",
+          "keystate": "up",
+          "scancode": 3,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_2"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_2"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "3",
+      "prompt": "Press 3 once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818805.715649,
+          "keycode": "KEY_3",
+          "keystate": "down",
+          "scancode": 4,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818805.861796,
+          "keycode": "KEY_3",
+          "keystate": "up",
+          "scancode": 4,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_3"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_3"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "4",
+      "prompt": "Press 4 once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818807.673157,
+          "keycode": "KEY_4",
+          "keystate": "down",
+          "scancode": 5,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818807.808077,
+          "keycode": "KEY_4",
+          "keystate": "up",
+          "scancode": 5,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_4"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_4"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "5",
+      "prompt": "Press 5 once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818809.461931,
+          "keycode": "KEY_5",
+          "keystate": "down",
+          "scancode": 6,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818809.630636,
+          "keycode": "KEY_5",
+          "keystate": "up",
+          "scancode": 6,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_5"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_5"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "6",
+      "prompt": "Press 6 once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818811.486976,
+          "keycode": "KEY_6",
+          "keystate": "down",
+          "scancode": 7,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818811.700687,
+          "keycode": "KEY_6",
+          "keystate": "up",
+          "scancode": 7,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_6"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_6"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "7",
+      "prompt": "Press 7 once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818813.388221,
+          "keycode": "KEY_7",
+          "keystate": "down",
+          "scancode": 8,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818813.512042,
+          "keycode": "KEY_7",
+          "keystate": "up",
+          "scancode": 8,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_7"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_7"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "8",
+      "prompt": "Press 8 once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818815.278257,
+          "keycode": "KEY_8",
+          "keystate": "down",
+          "scancode": 9,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818815.446966,
+          "keycode": "KEY_8",
+          "keystate": "up",
+          "scancode": 9,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_8"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_8"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "9",
+      "prompt": "Press 9 once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818817.292034,
+          "keycode": "KEY_9",
+          "keystate": "down",
+          "scancode": 10,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818817.393271,
+          "keycode": "KEY_9",
+          "keystate": "up",
+          "scancode": 10,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_9"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_9"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "0",
+      "prompt": "Press 0 once.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818819.305822,
+          "keycode": "KEY_0",
+          "keystate": "down",
+          "scancode": 11,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818819.429459,
+          "keycode": "KEY_0",
+          "keystate": "up",
+          "scancode": 11,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_0"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_0"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "shift-a",
+      "prompt": "Hold Shift and press A.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818824.975857,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "down",
+          "scancode": 42,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818825.250742,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "hold",
+          "scancode": 42,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818825.29074,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "hold",
+          "scancode": 42,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818825.33074,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "hold",
+          "scancode": 42,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818825.369582,
+          "keycode": "KEY_A",
+          "keystate": "down",
+          "scancode": 30,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818825.549578,
+          "keycode": "KEY_A",
+          "keystate": "up",
+          "scancode": 30,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818825.740777,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "up",
+          "scancode": 42,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_A"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_A"
+        ],
+        "event_count": 7
+      }
+    },
+    {
+      "slug": "shift-1",
+      "prompt": "Hold Shift and press 1.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818831.275951,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "down",
+          "scancode": 42,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818831.433358,
+          "keycode": "KEY_1",
+          "keystate": "down",
+          "scancode": 2,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818831.624722,
+          "keycode": "KEY_1",
+          "keystate": "up",
+          "scancode": 2,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818831.692094,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "up",
+          "scancode": 42,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_1"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_1"
+        ],
+        "event_count": 4
+      }
+    },
+    {
+      "slug": "shift-2",
+      "prompt": "Hold Shift and press 2.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818833.334785,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "down",
+          "scancode": 42,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818833.593448,
+          "keycode": "KEY_2",
+          "keystate": "down",
+          "scancode": 3,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818833.762134,
+          "keycode": "KEY_2",
+          "keystate": "up",
+          "scancode": 3,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818833.9759,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "up",
+          "scancode": 42,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818833.977106,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "down",
+          "scancode": 42,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818834.020842,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "up",
+          "scancode": 42,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_2",
+          "KEY_LEFTSHIFT"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_2"
+        ],
+        "event_count": 6
+      }
+    },
+    {
+      "slug": "shift-3",
+      "prompt": "Hold Shift and press 3.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818836.653506,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "down",
+          "scancode": 42,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818836.844704,
+          "keycode": "KEY_3",
+          "keystate": "down",
+          "scancode": 4,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818837.01341,
+          "keycode": "KEY_3",
+          "keystate": "up",
+          "scancode": 4,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818837.103407,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "up",
+          "scancode": 42,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_3"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_3"
+        ],
+        "event_count": 4
+      }
+    },
+    {
+      "slug": "shift-4",
+      "prompt": "Hold Shift and press 4.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818839.016045,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "down",
+          "scancode": 42,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818839.18468,
+          "keycode": "KEY_4",
+          "keystate": "down",
+          "scancode": 5,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818839.353444,
+          "keycode": "KEY_4",
+          "keystate": "up",
+          "scancode": 5,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818839.499657,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "up",
+          "scancode": 42,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_4"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_4"
+        ],
+        "event_count": 4
+      }
+    },
+    {
+      "slug": "shift-5",
+      "prompt": "Hold Shift and press 5.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818840.917279,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "down",
+          "scancode": 42,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818841.108477,
+          "keycode": "KEY_5",
+          "keystate": "down",
+          "scancode": 6,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818841.277166,
+          "keycode": "KEY_5",
+          "keystate": "up",
+          "scancode": 6,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818841.423467,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "up",
+          "scancode": 42,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_5"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_5"
+        ],
+        "event_count": 4
+      }
+    },
+    {
+      "slug": "shift-6",
+      "prompt": "Hold Shift and press 6.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818843.144829,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "down",
+          "scancode": 42,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818843.313486,
+          "keycode": "KEY_6",
+          "keystate": "down",
+          "scancode": 7,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818843.437207,
+          "keycode": "KEY_6",
+          "keystate": "up",
+          "scancode": 7,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818843.538507,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "up",
+          "scancode": 42,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_6"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_6"
+        ],
+        "event_count": 4
+      }
+    },
+    {
+      "slug": "shift-7",
+      "prompt": "Hold Shift and press 7.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818845.136096,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "down",
+          "scancode": 42,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818845.327266,
+          "keycode": "KEY_7",
+          "keystate": "down",
+          "scancode": 8,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818845.450967,
+          "keycode": "KEY_7",
+          "keystate": "up",
+          "scancode": 8,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818845.65359,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "up",
+          "scancode": 42,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818845.665929,
+          "keycode": "KEY_CAPSLOCK",
+          "keystate": "down",
+          "scancode": 58,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818845.677201,
+          "keycode": "KEY_CAPSLOCK",
+          "keystate": "up",
+          "scancode": 58,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_7",
+          "KEY_CAPSLOCK"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_7",
+          "KEY_CAPSLOCK"
+        ],
+        "event_count": 6
+      }
+    },
+    {
+      "slug": "shift-8",
+      "prompt": "Hold Shift and press 8.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818847.037349,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "down",
+          "scancode": 42,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818847.18353,
+          "keycode": "KEY_8",
+          "keystate": "down",
+          "scancode": 9,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818847.307258,
+          "keycode": "KEY_8",
+          "keystate": "up",
+          "scancode": 9,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818847.431045,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "up",
+          "scancode": 42,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818847.432241,
+          "keycode": "KEY_CAPSLOCK",
+          "keystate": "down",
+          "scancode": 58,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818847.443475,
+          "keycode": "KEY_CAPSLOCK",
+          "keystate": "up",
+          "scancode": 58,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_8",
+          "KEY_CAPSLOCK"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_8",
+          "KEY_CAPSLOCK"
+        ],
+        "event_count": 6
+      }
+    },
+    {
+      "slug": "shift-9",
+      "prompt": "Hold Shift and press 9.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818852.999924,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "down",
+          "scancode": 42,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818853.123577,
+          "keycode": "KEY_9",
+          "keystate": "down",
+          "scancode": 10,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818853.258626,
+          "keycode": "KEY_9",
+          "keystate": "up",
+          "scancode": 10,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818853.337349,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "up",
+          "scancode": 42,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_9"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_9"
+        ],
+        "event_count": 4
+      }
+    },
+    {
+      "slug": "shift-0",
+      "prompt": "Hold Shift and press 0.",
+      "note": "",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818857.477483,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "down",
+          "scancode": 42,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818857.657472,
+          "keycode": "KEY_0",
+          "keystate": "down",
+          "scancode": 11,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818857.803637,
+          "keycode": "KEY_0",
+          "keystate": "up",
+          "scancode": 11,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818857.904866,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "up",
+          "scancode": 42,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_0"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_0"
+        ],
+        "event_count": 4
+      }
+    },
+    {
+      "slug": "double-shift",
+      "prompt": "Double-tap Shift.",
+      "note": "The docs claim this toggles Caps Lock; we need to see the actual Linux-visible event sequence.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818864.002553,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "down",
+          "scancode": 42,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818864.081187,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "up",
+          "scancode": 42,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818864.171153,
+          "keycode": "KEY_CAPSLOCK",
+          "keystate": "down",
+          "scancode": 58,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818864.261145,
+          "keycode": "KEY_CAPSLOCK",
+          "keystate": "up",
+          "scancode": 58,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_CAPSLOCK"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_CAPSLOCK"
+        ],
+        "event_count": 4
+      }
+    },
+    {
+      "slug": "fn-6",
+      "prompt": "Hold Fn and press 6.",
+      "note": "Documented as ESC.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818870.617621,
+          "keycode": "KEY_ESC",
+          "keystate": "down",
+          "scancode": 1,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818870.797522,
+          "keycode": "KEY_ESC",
+          "keystate": "up",
+          "scancode": 1,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_ESC"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_ESC"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "fn-7",
+      "prompt": "Hold Fn and press 7.",
+      "note": "Documented as Arrow Up.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818874.431374,
+          "keycode": "KEY_UP",
+          "keystate": "down",
+          "scancode": 103,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818874.577642,
+          "keycode": "KEY_UP",
+          "keystate": "up",
+          "scancode": 103,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_UP"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_UP"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "fn-8",
+      "prompt": "Hold Fn and press 8.",
+      "note": "Documented as Arrow Down.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818876.670145,
+          "keycode": "KEY_DOWN",
+          "keystate": "down",
+          "scancode": 108,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818876.816306,
+          "keycode": "KEY_DOWN",
+          "keystate": "up",
+          "scancode": 108,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_DOWN"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_DOWN"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "fn-9",
+      "prompt": "Hold Fn and press 9.",
+      "note": "Documented as Arrow Left.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818878.503934,
+          "keycode": "KEY_LEFT",
+          "keystate": "down",
+          "scancode": 105,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818878.627736,
+          "keycode": "KEY_LEFT",
+          "keystate": "up",
+          "scancode": 105,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_LEFT"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_LEFT"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "fn-0",
+      "prompt": "Hold Fn and press 0.",
+      "note": "Documented as Arrow Right.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818880.697703,
+          "keycode": "KEY_RIGHT",
+          "keystate": "down",
+          "scancode": 106,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818880.866368,
+          "keycode": "KEY_RIGHT",
+          "keystate": "up",
+          "scancode": 106,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_RIGHT"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_RIGHT"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "fn-w",
+      "prompt": "Hold Fn and press W.",
+      "note": "Documented as Android mode. This may change keyboard mode; run this near the end.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818886.930261,
+          "keycode": "KEY_W",
+          "keystate": "down",
+          "scancode": 17,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818887.098938,
+          "keycode": "KEY_W",
+          "keystate": "up",
+          "scancode": 17,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_W"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_W"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "fn-e",
+      "prompt": "Hold Fn and press E.",
+      "note": "Documented as Windows mode. This may change keyboard mode; run this near the end.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818891.734139,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "down",
+          "scancode": 42,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818891.734139,
+          "keycode": "KEY_LEFTBRACE",
+          "keystate": "down",
+          "scancode": 26,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818891.891524,
+          "keycode": "KEY_LEFTBRACE",
+          "keystate": "up",
+          "scancode": 26,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818891.892703,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "up",
+          "scancode": 42,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_LEFTBRACE"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_LEFTSHIFT",
+          "KEY_LEFTBRACE"
+        ],
+        "event_count": 4
+      }
+    },
+    {
+      "slug": "alt-c",
+      "prompt": "Hold Alt and press C.",
+      "note": "Docs claim this may emit \u00c7.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818901.386776,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "down",
+          "scancode": 100,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818901.555457,
+          "keycode": "KEY_C",
+          "keystate": "down",
+          "scancode": 46,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818901.735391,
+          "keycode": "KEY_C",
+          "keystate": "up",
+          "scancode": 46,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818901.915421,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "up",
+          "scancode": 100,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_RIGHTALT",
+          "KEY_C"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_RIGHTALT",
+          "KEY_C"
+        ],
+        "event_count": 4
+      }
+    },
+    {
+      "slug": "alt-s",
+      "prompt": "Hold Alt and press S.",
+      "note": "Docs claim this may emit \u00df.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818910.566894,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "down",
+          "scancode": 100,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818910.758033,
+          "keycode": "KEY_S",
+          "keystate": "down",
+          "scancode": 31,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818910.881719,
+          "keycode": "KEY_S",
+          "keystate": "up",
+          "scancode": 31,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818910.971733,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "up",
+          "scancode": 100,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_RIGHTALT",
+          "KEY_S"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_RIGHTALT",
+          "KEY_S"
+        ],
+        "event_count": 4
+      }
+    },
+    {
+      "slug": "alt-e-then-a",
+      "prompt": "Press Alt+E, release, then press A.",
+      "note": "Accent composition test from the vendor notes.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818928.949549,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "down",
+          "scancode": 100,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818929.218745,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "hold",
+          "scancode": 100,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818929.258742,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "hold",
+          "scancode": 100,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818929.264523,
+          "keycode": "KEY_E",
+          "keystate": "down",
+          "scancode": 18,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818929.433208,
+          "keycode": "KEY_E",
+          "keystate": "up",
+          "scancode": 18,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818929.545783,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "up",
+          "scancode": 100,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818930.074517,
+          "keycode": "KEY_A",
+          "keystate": "down",
+          "scancode": 30,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818930.19822,
+          "keycode": "KEY_A",
+          "keystate": "up",
+          "scancode": 30,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_RIGHTALT",
+          "KEY_E",
+          "KEY_A"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_RIGHTALT",
+          "KEY_E",
+          "KEY_A"
+        ],
+        "event_count": 8
+      }
+    },
+    {
+      "slug": "alt-u-then-u",
+      "prompt": "Press Alt+U, release, then press U.",
+      "note": "Accent composition test from the vendor notes.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818937.094632,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "down",
+          "scancode": 100,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818937.346746,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "hold",
+          "scancode": 100,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818937.386762,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "hold",
+          "scancode": 100,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818937.420884,
+          "keycode": "KEY_U",
+          "keystate": "down",
+          "scancode": 22,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818937.623358,
+          "keycode": "KEY_U",
+          "keystate": "up",
+          "scancode": 22,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818937.747041,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "up",
+          "scancode": 100,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818938.140819,
+          "keycode": "KEY_U",
+          "keystate": "down",
+          "scancode": 22,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818938.275787,
+          "keycode": "KEY_U",
+          "keystate": "up",
+          "scancode": 22,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_RIGHTALT",
+          "KEY_U",
+          "KEY_U"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_RIGHTALT",
+          "KEY_U"
+        ],
+        "event_count": 8
+      }
+    },
+    {
+      "slug": "alt-i-then-i",
+      "prompt": "Press Alt+I, release, then press I.",
+      "note": "Accent composition test from the vendor notes.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818945.374784,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "down",
+          "scancode": 100,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818945.565975,
+          "keycode": "KEY_I",
+          "keystate": "down",
+          "scancode": 23,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818945.71215,
+          "keycode": "KEY_I",
+          "keystate": "up",
+          "scancode": 23,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818945.880859,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "up",
+          "scancode": 100,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818946.173414,
+          "keycode": "KEY_I",
+          "keystate": "down",
+          "scancode": 23,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818946.308369,
+          "keycode": "KEY_I",
+          "keystate": "up",
+          "scancode": 23,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_RIGHTALT",
+          "KEY_I",
+          "KEY_I"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_RIGHTALT",
+          "KEY_I"
+        ],
+        "event_count": 6
+      }
+    },
+    {
+      "slug": "alt-n-then-n",
+      "prompt": "Press Alt+N, release, then press N.",
+      "note": "Accent composition test from the vendor notes.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818955.027307,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "down",
+          "scancode": 100,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818955.274727,
+          "keycode": "KEY_N",
+          "keystate": "down",
+          "scancode": 49,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818955.421,
+          "keycode": "KEY_N",
+          "keystate": "up",
+          "scancode": 49,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818955.556062,
+          "keycode": "KEY_RIGHTALT",
+          "keystate": "up",
+          "scancode": 100,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818955.882269,
+          "keycode": "KEY_N",
+          "keystate": "down",
+          "scancode": 49,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818955.972277,
+          "keycode": "KEY_N",
+          "keystate": "up",
+          "scancode": 49,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_RIGHTALT",
+          "KEY_N",
+          "KEY_N"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_RIGHTALT",
+          "KEY_N"
+        ],
+        "event_count": 6
+      }
+    },
+    {
+      "slug": "ctrl-space-hold",
+      "prompt": "Hold Ctrl+Space for 3 seconds.",
+      "note": "Vendor claims this toggles backlight. We want to see whether Linux receives normal key events.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777818965.512488,
+          "keycode": "KEY_SPACE",
+          "keystate": "down",
+          "scancode": 57,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818965.546291,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "down",
+          "scancode": 97,
+          "value": 1
+        },
+        {
+          "timestamp": 1777818965.826742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818965.866741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818965.906741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818965.946749,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818965.986742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.026742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.066742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.106747,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.146751,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.186742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.226741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.266742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.306752,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.346742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.386742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.426742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.466746,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.506742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.546742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.586743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.626757,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.66674,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.70674,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.746742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.786742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.826751,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.866741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.906742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.946741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818966.986741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.026741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.066742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.106751,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.146741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.186741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.226741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.266755,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.306742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.34674,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.386742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.426748,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.46675,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.506741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.546744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.586742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.62675,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.666741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.706741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.746741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.78675,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.826741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.866742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.906741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.946752,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818967.986741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.026742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.066742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.106752,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.146742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.186741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.226741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.266747,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.306742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.346742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.386741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.426741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.466751,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.506741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.546742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.586742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.626741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.666748,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.706741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.746741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.786741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.82674,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.866741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.906742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.946741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818968.986742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818969.026741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818969.066742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818969.10674,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818969.146745,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818969.186741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818969.226741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818969.266741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777818969.292542,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "up",
+          "scancode": 97,
+          "value": 0
+        },
+        {
+          "timestamp": 1777818969.326174,
+          "keycode": "KEY_SPACE",
+          "keystate": "up",
+          "scancode": 57,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_SPACE",
+          "KEY_RIGHTCTRL"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_SPACE",
+          "KEY_RIGHTCTRL"
+        ],
+        "event_count": 91
+      }
+    },
+    {
+      "slug": "extra-fn-1",
+      "prompt": "Press one undocumented Fn combo that is physically printed on the keyboard.",
+      "note": "Pick a visible Fn-labeled combo not already tested and note which one in the final report.",
+      "status": "no-events",
+      "events": [],
+      "summary": {
+        "pressed_keycodes": [],
+        "unique_pressed_keycodes": [],
+        "event_count": 0
+      }
+    },
+    {
+      "slug": "extra-fn-2",
+      "prompt": "Press another undocumented Fn combo that is physically printed on the keyboard.",
+      "note": "Pick a second visible Fn-labeled combo not already tested and note which one in the final report.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777819008.81436,
+          "keycode": "KEY_RIGHTSHIFT",
+          "keystate": "down",
+          "scancode": 54,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819008.938033,
+          "keycode": "KEY_RIGHTSHIFT",
+          "keystate": "up",
+          "scancode": 54,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_RIGHTSHIFT"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_RIGHTSHIFT"
+        ],
+        "event_count": 2
+      }
+    },
+    {
+      "slug": "free-explore",
+      "prompt": "Press any additional undocumented keys or combos for 45 seconds.",
+      "note": "Use this to discover unexpected Linux-visible keycodes that were not in the guided script.",
+      "status": "ok",
+      "events": [
+        {
+          "timestamp": 1777819024.890884,
+          "keycode": "KEY_RIGHTSHIFT",
+          "keystate": "down",
+          "scancode": 54,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819024.991997,
+          "keycode": "KEY_RIGHTSHIFT",
+          "keystate": "up",
+          "scancode": 54,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819028.817147,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "down",
+          "scancode": 97,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819028.974519,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "up",
+          "scancode": 97,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819032.428484,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "down",
+          "scancode": 97,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819032.706746,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819032.746744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819032.786744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819032.826744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819032.866744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819032.906754,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819032.946744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819032.986742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.026744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.066744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.106744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.146744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.186744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.226744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.266745,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.306744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.346744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.386744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.426744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.466743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.506744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.546748,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.586741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.626744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.666744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.706742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.746743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.786742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.826742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.866741,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.906743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.946743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819033.986743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.026744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.066742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.106742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.146742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.186742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.226743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.266742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.306743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.346744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.386744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.426742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.466743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.506744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.546742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.586743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.626744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.666743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.706744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.746743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.786743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.826744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.866746,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.906743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.946742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819034.986743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.026744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.066745,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.106744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.146746,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.186755,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.226744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.266743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.306744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.346755,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.386746,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.426744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.466742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.506743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.546756,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.586745,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.626749,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.666752,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.706742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.746743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.786744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.826744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.866745,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.906745,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.946742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819035.986743,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819036.026744,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819036.066742,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819036.106745,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "hold",
+          "scancode": 97,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819036.107263,
+          "keycode": "KEY_RIGHTCTRL",
+          "keystate": "up",
+          "scancode": 97,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819042.643615,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "down",
+          "scancode": 125,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819042.914742,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819042.954745,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819042.994742,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.034743,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.074744,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.114744,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.154743,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.194742,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.234743,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.274742,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.314744,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.354742,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.394741,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.434744,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.474744,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.518741,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.558745,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.598744,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.638742,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.678742,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.718741,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.758744,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.798745,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.838742,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.878741,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.918742,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.958743,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819043.998742,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.038746,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.078745,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.118742,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.158744,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.198741,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.238742,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.278748,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.318743,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.358743,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.398742,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.438743,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.478744,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.522741,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.562748,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.602745,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.642745,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.682744,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.722744,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.762745,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.802745,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.842743,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.882744,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.922743,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819044.962744,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.002743,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.04275,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.082743,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.122745,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.162744,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.202744,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.242743,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.282757,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.322745,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.362744,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.402743,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.442743,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.482743,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.526741,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.566752,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.606742,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.646743,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.686746,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "hold",
+          "scancode": 125,
+          "value": 2
+        },
+        {
+          "timestamp": 1777819045.692347,
+          "keycode": "KEY_LEFTMETA",
+          "keystate": "up",
+          "scancode": 125,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819046.772354,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "down",
+          "scancode": 42,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819046.997289,
+          "keycode": "KEY_1",
+          "keystate": "down",
+          "scancode": 2,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819047.132297,
+          "keycode": "KEY_1",
+          "keystate": "up",
+          "scancode": 2,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819047.346107,
+          "keycode": "KEY_2",
+          "keystate": "down",
+          "scancode": 3,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819047.458555,
+          "keycode": "KEY_2",
+          "keystate": "up",
+          "scancode": 3,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819047.739868,
+          "keycode": "KEY_3",
+          "keystate": "down",
+          "scancode": 4,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819047.874818,
+          "keycode": "KEY_3",
+          "keystate": "up",
+          "scancode": 4,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819048.144782,
+          "keycode": "KEY_4",
+          "keystate": "down",
+          "scancode": 5,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819048.268542,
+          "keycode": "KEY_4",
+          "keystate": "up",
+          "scancode": 5,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819048.482278,
+          "keycode": "KEY_4",
+          "keystate": "down",
+          "scancode": 5,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819048.594985,
+          "keycode": "KEY_4",
+          "keystate": "up",
+          "scancode": 5,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819048.842325,
+          "keycode": "KEY_5",
+          "keystate": "down",
+          "scancode": 6,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819048.977309,
+          "keycode": "KEY_5",
+          "keystate": "up",
+          "scancode": 6,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819049.213569,
+          "keycode": "KEY_6",
+          "keystate": "down",
+          "scancode": 7,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819049.326038,
+          "keycode": "KEY_6",
+          "keystate": "up",
+          "scancode": 7,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819049.562401,
+          "keycode": "KEY_7",
+          "keystate": "down",
+          "scancode": 8,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819049.697292,
+          "keycode": "KEY_7",
+          "keystate": "up",
+          "scancode": 8,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819049.944804,
+          "keycode": "KEY_8",
+          "keystate": "down",
+          "scancode": 9,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819050.07979,
+          "keycode": "KEY_8",
+          "keystate": "up",
+          "scancode": 9,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819050.282306,
+          "keycode": "KEY_9",
+          "keystate": "down",
+          "scancode": 10,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819050.361018,
+          "keycode": "KEY_9",
+          "keystate": "up",
+          "scancode": 10,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819050.507283,
+          "keycode": "KEY_0",
+          "keystate": "down",
+          "scancode": 11,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819050.676139,
+          "keycode": "KEY_0",
+          "keystate": "up",
+          "scancode": 11,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819051.497356,
+          "keycode": "KEY_E",
+          "keystate": "down",
+          "scancode": 18,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819051.643659,
+          "keycode": "KEY_E",
+          "keystate": "up",
+          "scancode": 18,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819051.744831,
+          "keycode": "KEY_R",
+          "keystate": "down",
+          "scancode": 19,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819051.902333,
+          "keycode": "KEY_T",
+          "keystate": "down",
+          "scancode": 20,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819051.95855,
+          "keycode": "KEY_R",
+          "keystate": "up",
+          "scancode": 19,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819052.082367,
+          "keycode": "KEY_Y",
+          "keystate": "down",
+          "scancode": 21,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819052.083539,
+          "keycode": "KEY_T",
+          "keystate": "up",
+          "scancode": 20,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819052.217326,
+          "keycode": "KEY_Y",
+          "keystate": "up",
+          "scancode": 21,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819052.217326,
+          "keycode": "KEY_U",
+          "keystate": "down",
+          "scancode": 22,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819052.307334,
+          "keycode": "KEY_U",
+          "keystate": "up",
+          "scancode": 22,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819052.307334,
+          "keycode": "KEY_I",
+          "keystate": "down",
+          "scancode": 23,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819052.397306,
+          "keycode": "KEY_O",
+          "keystate": "down",
+          "scancode": 24,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819052.431067,
+          "keycode": "KEY_I",
+          "keystate": "up",
+          "scancode": 23,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819052.566164,
+          "keycode": "KEY_P",
+          "keystate": "down",
+          "scancode": 25,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819052.599835,
+          "keycode": "KEY_O",
+          "keystate": "up",
+          "scancode": 24,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819052.734896,
+          "keycode": "KEY_P",
+          "keystate": "up",
+          "scancode": 25,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819053.274938,
+          "keycode": "KEY_D",
+          "keystate": "down",
+          "scancode": 32,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819053.409827,
+          "keycode": "KEY_F",
+          "keystate": "down",
+          "scancode": 33,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819053.411036,
+          "keycode": "KEY_D",
+          "keystate": "up",
+          "scancode": 32,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819053.466088,
+          "keycode": "KEY_G",
+          "keystate": "down",
+          "scancode": 34,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819053.46732,
+          "keycode": "KEY_F",
+          "keystate": "up",
+          "scancode": 33,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819053.544922,
+          "keycode": "KEY_G",
+          "keystate": "up",
+          "scancode": 34,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819053.54606,
+          "keycode": "KEY_H",
+          "keystate": "down",
+          "scancode": 35,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819053.646088,
+          "keycode": "KEY_J",
+          "keystate": "down",
+          "scancode": 36,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819053.647287,
+          "keycode": "KEY_H",
+          "keystate": "up",
+          "scancode": 35,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819053.747355,
+          "keycode": "KEY_K",
+          "keystate": "down",
+          "scancode": 37,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819053.748569,
+          "keycode": "KEY_J",
+          "keystate": "up",
+          "scancode": 36,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819053.848572,
+          "keycode": "KEY_L",
+          "keystate": "down",
+          "scancode": 38,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819053.871074,
+          "keycode": "KEY_K",
+          "keystate": "up",
+          "scancode": 37,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819054.006093,
+          "keycode": "KEY_BACKSPACE",
+          "keystate": "down",
+          "scancode": 14,
+          "value": 1
+        },
+        {
+          "timestamp": 1777819054.028572,
+          "keycode": "KEY_L",
+          "keystate": "up",
+          "scancode": 38,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819054.062316,
+          "keycode": "KEY_BACKSPACE",
+          "keystate": "up",
+          "scancode": 14,
+          "value": 0
+        },
+        {
+          "timestamp": 1777819054.242345,
+          "keycode": "KEY_LEFTSHIFT",
+          "keystate": "up",
+          "scancode": 42,
+          "value": 0
+        }
+      ],
+      "summary": {
+        "pressed_keycodes": [
+          "KEY_RIGHTSHIFT",
+          "KEY_RIGHTCTRL",
+          "KEY_RIGHTCTRL",
+          "KEY_LEFTMETA",
+          "KEY_LEFTSHIFT",
+          "KEY_1",
+          "KEY_2",
+          "KEY_3",
+          "KEY_4",
+          "KEY_4",
+          "KEY_5",
+          "KEY_6",
+          "KEY_7",
+          "KEY_8",
+          "KEY_9",
+          "KEY_0",
+          "KEY_E",
+          "KEY_R",
+          "KEY_T",
+          "KEY_Y",
+          "KEY_U",
+          "KEY_I",
+          "KEY_O",
+          "KEY_P",
+          "KEY_D",
+          "KEY_F",
+          "KEY_G",
+          "KEY_H",
+          "KEY_J",
+          "KEY_K",
+          "KEY_L",
+          "KEY_BACKSPACE"
+        ],
+        "unique_pressed_keycodes": [
+          "KEY_RIGHTSHIFT",
+          "KEY_RIGHTCTRL",
+          "KEY_LEFTMETA",
+          "KEY_LEFTSHIFT",
+          "KEY_1",
+          "KEY_2",
+          "KEY_3",
+          "KEY_4",
+          "KEY_5",
+          "KEY_6",
+          "KEY_7",
+          "KEY_8",
+          "KEY_9",
+          "KEY_0",
+          "KEY_E",
+          "KEY_R",
+          "KEY_T",
+          "KEY_Y",
+          "KEY_U",
+          "KEY_I",
+          "KEY_O",
+          "KEY_P",
+          "KEY_D",
+          "KEY_F",
+          "KEY_G",
+          "KEY_H",
+          "KEY_J",
+          "KEY_K",
+          "KEY_L",
+          "KEY_BACKSPACE"
+        ],
+        "event_count": 220,
+        "new_keycodes_vs_guided": []
+      }
+    }
+  ]
+}
