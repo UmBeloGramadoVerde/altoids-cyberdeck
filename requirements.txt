@@ -1,0 +1,8 @@
+displayhatmini
+evdev
+Pillow
+psutil
+pyte
+PyGObject
+RPi.GPIO
+tomli; python_version < "3.11"

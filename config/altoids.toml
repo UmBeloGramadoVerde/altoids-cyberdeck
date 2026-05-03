@@ -1,0 +1,31 @@
+[display]
+width = 320
+height = 240
+fps_active = 12
+fps_idle = 1
+backlight_brightness = 1.0
+
+[sleep]
+idle_seconds = 60
+
+[ui]
+font_path = "fonts/terminus.pil"
+font_size = 12
+message_interval = 12.0
+mascot_frame_seconds = 0.5
+button_labels = ["A", "B", "X", "Y"]
+
+[terminal]
+session_name = "altoids"
+pane_history = 200
+width_chars = 53
+height_chars = 20
+scroll_step = 3
+
+[system]
+temperature_warn_c = 70.0
+
+[wifi]
+scan_cache_seconds = 15.0
+
+[wifi.passwords]

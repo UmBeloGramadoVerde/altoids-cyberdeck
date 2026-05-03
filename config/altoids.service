@@ -1,0 +1,14 @@
+[Unit]
+Description=Altoids Cyberdeck UI
+After=multi-user.target bluetooth.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/altoids
+ExecStart=/opt/altoids/.venv/bin/python -m altoids
+Restart=on-failure
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
