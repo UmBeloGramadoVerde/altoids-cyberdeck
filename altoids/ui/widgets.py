@@ -4,6 +4,8 @@ from PIL import ImageDraw, ImageFont
 
 from ..colors import ACCENT, BG, DIM, FG
 
+BUTTON_BAR_HEIGHT = 24
+
 
 def draw_progress_bar(draw: ImageDraw.ImageDraw, x: int, y: int, width: int, pct: float, color: str = ACCENT) -> None:
     pct = max(0.0, min(1.0, pct))
@@ -27,7 +29,7 @@ def draw_separator(draw: ImageDraw.ImageDraw, y: int, width: int) -> None:
 
 
 def draw_button_bar(draw: ImageDraw.ImageDraw, width: int, height: int, hints: list[str], font: ImageFont.ImageFont) -> None:
-    top = height - 24
+    top = height - BUTTON_BAR_HEIGHT
     draw.rectangle((0, top, width, height), fill=BG)
     draw_separator(draw, top, width)
     labels = hints[:4] + ["-"] * max(0, 4 - len(hints))

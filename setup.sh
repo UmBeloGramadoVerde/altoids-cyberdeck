@@ -20,7 +20,7 @@ sudo apt-get install -y \
 
 sudo mkdir -p "$INSTALL_DIR"
 sudo cp -R "$ROOT_DIR"/. "$INSTALL_DIR"/
-sudo python3 -m venv "$VENV_DIR"
+sudo python3 -m venv --system-site-packages "$VENV_DIR"
 sudo "$VENV_DIR/bin/pip" install --upgrade pip
 sudo "$VENV_DIR/bin/pip" install -r "$INSTALL_DIR/requirements.txt"
 

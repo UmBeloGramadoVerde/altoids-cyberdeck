@@ -43,12 +43,18 @@ class AltoidsApp:
         self.draw = ImageDraw.Draw(self.buffer)
         self.font = self._load_font(config.font_path, config.ui.font_size)
         self.font_large = self._load_font(config.font_path, config.ui.font_size + 4)
+        self.terminal_font = self._load_font(
+            config.terminal_font_path,
+            config.terminal.font_size,
+            fallback_paths=self._terminal_font_fallbacks(),
+        )
         self.headless = headless
         self.tmux = TmuxManager(
             config.terminal.session_name,
             config.terminal.width_chars,
             config.terminal.height_chars,
             config.terminal.pane_history,
+            config.shell_rc_path,
         )
         self.wifi = WifiManager(
             passwords=dict(config.wifi.passwords),
@@ -71,14 +77,38 @@ class AltoidsApp:
         self._system_snapshot_cache: TimedValue | None = None
         self.command_mode_deadline = 0.0
         self.web_viewer = WebViewer(host=web_host, port=web_port) if web_viewer else None
+        self._active_fps = max(config.display.fps_active, 20) if self.web_viewer is not None else config.display.fps_active
 
-    def _load_font(self, path: Path, size: int) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
-        if path.exists():
+    def _load_font(
+        self,
+        path: Path,
+        size: int,
+        fallback_paths: list[Path] | None = None,
+    ) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
+        candidates = [path]
+        if fallback_paths:
+            candidates.extend(fallback_paths)
+        for candidate in candidates:
+            if not candidate.exists():
+                continue
             try:
-                return ImageFont.load(path)
+                return ImageFont.load(candidate)
             except OSError:
-                return ImageFont.truetype(str(path), size=size)
+                try:
+                    return ImageFont.truetype(str(candidate), size=size)
+                except OSError:
+                    continue
         return ImageFont.load_default()
+
+    @staticmethod
+    def _terminal_font_fallbacks() -> list[Path]:
+        return [
+            Path("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"),
+            Path("/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf"),
+            Path("/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf"),
+            Path("/usr/share/fonts/truetype/liberation2/LiberationMono-Regular.ttf"),
+            Path("/usr/share/fonts/truetype/freefont/FreeMono.ttf"),
+        ]
 
     @property
     def active_screen(self) -> Screen:
@@ -123,11 +153,20 @@ class AltoidsApp:
         if self.command_mode_active:
             self.command_mode_deadline = 0.0
             self.needs_redraw = True
+        if self.active_screen.on_keyboard_event(event):
+            self.needs_redraw = True
+            return
         if self.active_screen_name == "term":
             if event.text and not event.ctrl and not event.alt:
                 self.tmux.send_text(event.text)
                 self.needs_redraw = True
                 return
+            if event.ctrl and not event.alt:
+                tmux_key = self._tmux_ctrl_key(event)
+                if tmux_key is not None:
+                    self.tmux.send_keys([tmux_key])
+                    self.needs_redraw = True
+                    return
             if event.key == "enter":
                 self.tmux.send_enter()
                 self.needs_redraw = True
@@ -156,6 +195,12 @@ class AltoidsApp:
             return True
         if event.key == "s":
             self.tmux.select_next_window()
+            return True
+        if event.key == "d":
+            self.tmux.create_window()
+            return True
+        if event.key == "f":
+            self.tmux.close_active_window()
             return True
         if self.active_screen_name == "system":
             system_screen = self.screens["system"]
@@ -192,6 +237,22 @@ class AltoidsApp:
             "delete": "DC",
             "insert": "IC",
         }[key]
+
+    @staticmethod
+    def _tmux_ctrl_key(event: KeyboardEvent) -> str | None:
+        if len(event.key) == 1 and event.key.isalpha():
+            return f"C-{event.key.lower()}"
+        if event.raw_key == "KEY_SPACE":
+            return "C-Space"
+        if event.key == "[":
+            return "C-["
+        if event.key == "]":
+            return "C-]"
+        if event.key == "\\":
+            return "C-\\"
+        if event.key == "/":
+            return "C-/"
+        return None
 
     def system_snapshot(self) -> dict[str, object]:
         now = time.monotonic()
@@ -302,7 +363,7 @@ class AltoidsApp:
             if max_frames is not None and frame_count >= max_frames:
                 return 0
 
-            target_fps = self.config.display.fps_active if not self.sleep_manager.sleeping else self.config.display.fps_idle
+            target_fps = self._active_fps if not self.sleep_manager.sleeping else self.config.display.fps_idle
             time.sleep(max(0.01, 1.0 / max(1, target_fps)))
 
 

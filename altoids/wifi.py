@@ -128,21 +128,23 @@ class WifiManager:
         self._last_message = f"scan ok {len(networks)} nets"
         return networks
 
-    def connect(self, network: WifiNetwork) -> tuple[bool, str]:
+    def connect(self, network: WifiNetwork, password: str | None = None) -> tuple[bool, str]:
         if not self.available:
             self._last_message = "nmcli not installed"
             return False, self._last_message
 
         args = ["device", "wifi", "connect", network.ssid]
-        password = self.passwords.get(network.ssid)
-        if password:
-            args.extend(["password", password])
+        chosen_password = password if password is not None else self.passwords.get(network.ssid)
+        if chosen_password:
+            args.extend(["password", chosen_password])
         elif not network.open:
             self._last_message = f"missing password for {network.ssid}"
             return False, self._last_message
 
         proc = self._run(*args)
         if proc.returncode == 0:
+            if chosen_password:
+                self.passwords[network.ssid] = chosen_password
             self._last_message = f"connected {network.ssid}"
             self._cached_status = None
             self.scan(force=True)

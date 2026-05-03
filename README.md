@@ -100,17 +100,29 @@ The terminal view currently:
 
 - ensures a tmux session exists
 - captures pane contents from tmux
-- renders plain text terminal output into the UI
-- supports scroll offset and tmux window switching
+- preserves basic ANSI colors from tmux output
+- renders the session inside a dedicated cyberdeck-style frame with pane metadata
+- compacts standard `user@host:path$` prompts for narrow display readability
+- supports scroll offset and tmux window management
+- starts new tmux panes through a cyberdeck-specific shell rc profile for a shorter prompt and pane titles
 
 Current controls:
 
 - `A`: scroll up
+- `long A`: create a new tmux window
 - `B`: scroll down
+- `long B`: close the active tmux window
 - `X`: next tmux window
 - `long X`: previous tmux window
 - `Y`: send Enter
 - `long Y`: return home
+
+Keyboard behavior on the terminal screen:
+
+- plain text is typed into tmux
+- `Ctrl` + letter chords such as `Ctrl+C` are forwarded into tmux
+- `Meta`, `A` / `S`: previous / next tmux window
+- `Meta`, `D` / `F`: create / close tmux window
 
 Note: the plan called for `pyte`-based ANSI rendering, but the current code strips ANSI sequences and renders plain text via [altoids/renderer.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/renderer.py:1). That is a deliberate simplification for the first pass.
 
@@ -139,6 +151,8 @@ Current controls:
 - `Y`: connect to selected Wi‑Fi network
 - `long Y`: open terminal
 
+If the selected Wi‑Fi network is secured and no working password is cached, the system screen now prompts for a password from the keyboard. `Enter` submits, `Backspace` edits, and `Esc` cancels.
+
 Wi‑Fi management is implemented in [altoids/wifi.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/wifi.py:1) and currently depends on `nmcli`, which means the Pi should use NetworkManager.
 
 ## Configuration
@@ -153,7 +167,7 @@ Current config sections:
 - `[terminal]`: tmux session name, history depth, terminal geometry
 - `[system]`: warning threshold for temperature
 - `[wifi]`: scan cache duration
-- `[wifi.passwords]`: SSID-to-password mapping for secured Wi‑Fi networks
+- `[wifi.passwords]`: optional SSID-to-password defaults for secured Wi‑Fi networks
 
 Example:
 
@@ -165,7 +179,14 @@ scan_cache_seconds = 15.0
 "MySSID" = "supersecret"
 ```
 
-Secured Wi‑Fi connections currently require the password to exist in config. Open networks can connect without an entry.
+The terminal config also supports a dedicated rcfile for deck sessions:
+
+```toml
+[terminal]
+shell_rc_path = "config/cyberdeck-shell.sh"
+```
+
+Secured Wi‑Fi connections can now be joined interactively from the system screen without predefining passwords in config. Password entries from config remain supported as optional defaults.
 
 ## Setup
 
@@ -174,6 +195,7 @@ The intended deployment path is [setup.sh](/Users/kaynaoliveira/Documents/GitHub
 It currently:
 
 - installs Python and tmux dependencies
+- uses distro `python3-gi` and `python3-gi-cairo` packages instead of building `PyGObject` from `pip`
 - installs `network-manager`
 - copies the bundled `tmux.conf`
 - installs the `altoids.service` systemd unit

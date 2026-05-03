@@ -54,7 +54,7 @@ HTML_PAGE = """<!doctype html>
   <script>
     const screen = document.getElementById("screen");
     const refresh = () => { screen.src = "/frame?ts=" + Date.now(); };
-    setInterval(refresh, 250);
+    setInterval(refresh, 80);
     document.querySelectorAll("button[data-button]").forEach((button) => {
       button.addEventListener("click", async () => {
         await fetch("/button", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({button: button.dataset.button, long_press: button.dataset.long === "1"})});

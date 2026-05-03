@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from PIL import Image, ImageDraw
+    from ..input_keyboard import KeyboardEvent
 
 
 @dataclass(slots=True)
@@ -25,6 +26,9 @@ class Screen:
         raise NotImplementedError
 
     def on_button(self, button: str, long_press: bool) -> bool:
+        return False
+
+    def on_keyboard_event(self, event: "KeyboardEvent") -> bool:
         return False
 
     def on_wake(self) -> None:

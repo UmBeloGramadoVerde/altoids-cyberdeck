@@ -21,6 +21,9 @@ pane_history = 200
 width_chars = 53
 height_chars = 20
 scroll_step = 3
+shell_rc_path = "config/cyberdeck-shell.sh"
+font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
+font_size = 11
 
 [system]
 temperature_warn_c = 70.0

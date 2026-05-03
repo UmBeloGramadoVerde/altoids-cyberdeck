@@ -96,6 +96,8 @@ The keyboard-specific command model is:
 - `meta`, `e` -> system
 - `meta`, `a` -> previous tmux window
 - `meta`, `s` -> next tmux window
+- `meta`, `d` -> create tmux window
+- `meta`, `f` -> close tmux window
 - `meta`, `z` -> previous screen
 - `meta`, `x` -> next screen
 

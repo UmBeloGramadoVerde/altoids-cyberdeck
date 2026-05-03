@@ -40,6 +40,10 @@ class TerminalConfig:
     width_chars: int = 53
     height_chars: int = 20
     scroll_step: int = 3
+    shell_rc_path: str = "config/cyberdeck-shell.sh"
+    font_path: str = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
+    font_size: int = 11
+    minimal_commands: list[str] = field(default_factory=lambda: ["codx", "codex"])
 
 
 @dataclass(slots=True)
@@ -66,6 +70,17 @@ class AltoidsConfig:
     @property
     def font_path(self) -> Path:
         return self.root_dir / self.ui.font_path
+
+    @property
+    def shell_rc_path(self) -> Path:
+        return self.root_dir / self.terminal.shell_rc_path
+
+    @property
+    def terminal_font_path(self) -> Path:
+        path = Path(self.terminal.font_path)
+        if path.is_absolute():
+            return path
+        return self.root_dir / path
 
 
 def _merge_dataclass(instance: Any, values: dict[str, Any]) -> Any:
