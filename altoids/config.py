@@ -12,11 +12,14 @@ except ModuleNotFoundError:  # pragma: no cover
 
 @dataclass(slots=True)
 class DisplayConfig:
-    width: int = 320
+    backend: str = "auto"
+    width: int = 280
     height: int = 240
     fps_active: int = 12
     fps_idle: int = 1
     backlight_brightness: float = 1.0
+    rotation: int = 270
+    driver_path: str = "vendor/Whisplay/Driver"
 
 
 @dataclass(slots=True)
@@ -58,6 +61,26 @@ class WifiConfig:
 
 
 @dataclass(slots=True)
+class AudioConfig:
+    enabled: bool = True
+    card: str = "wm8960soundcard"
+    volume_percent: int = 70
+    muted: bool = False
+    cue_screen_change: bool = True
+    cue_wake: bool = True
+    cue_boot: bool = True
+    cue_wifi: bool = True
+    cue_error: bool = True
+
+
+@dataclass(slots=True)
+class LedConfig:
+    enabled: bool = True
+    pulses: bool = True
+    brightness: float = 0.35
+
+
+@dataclass(slots=True)
 class AltoidsConfig:
     root_dir: Path
     display: DisplayConfig = field(default_factory=DisplayConfig)
@@ -66,6 +89,8 @@ class AltoidsConfig:
     terminal: TerminalConfig = field(default_factory=TerminalConfig)
     system: SystemConfig = field(default_factory=SystemConfig)
     wifi: WifiConfig = field(default_factory=WifiConfig)
+    audio: AudioConfig = field(default_factory=AudioConfig)
+    led: LedConfig = field(default_factory=LedConfig)
 
     @property
     def font_path(self) -> Path:
@@ -78,6 +103,13 @@ class AltoidsConfig:
     @property
     def terminal_font_path(self) -> Path:
         path = Path(self.terminal.font_path)
+        if path.is_absolute():
+            return path
+        return self.root_dir / path
+
+    @property
+    def display_driver_path(self) -> Path:
+        path = Path(self.display.driver_path)
         if path.is_absolute():
             return path
         return self.root_dir / path
@@ -110,4 +142,8 @@ def load_config(path: str | Path | None = None) -> AltoidsConfig:
         config.system = _merge_dataclass(config.system, payload["system"])
     if "wifi" in payload:
         config.wifi = _merge_dataclass(config.wifi, payload["wifi"])
+    if "audio" in payload:
+        config.audio = _merge_dataclass(config.audio, payload["audio"])
+    if "led" in payload:
+        config.led = _merge_dataclass(config.led, payload["led"])
     return config

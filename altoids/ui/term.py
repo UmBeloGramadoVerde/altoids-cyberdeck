@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import time
 
 from PIL import ImageDraw
 
 from ..colors import ACCENT, DIM, FG
+from ..input_keyboard import KeyboardEvent
 from ..renderer import cell_width, render_terminal, strip_ansi
 from .base import Screen, ScreenContext
 from .widgets import BUTTON_BAR_HEIGHT
@@ -34,6 +36,7 @@ class TerminalScreen(Screen):
         super().__init__(context)
         self.scroll_offset = 0
         self._refresh_elapsed = 0.0
+        self._last_visible_rows = context.app.config.terminal.height_chars
 
     def update(self, dt: float) -> bool:
         self._refresh_elapsed += dt
@@ -54,6 +57,7 @@ class TerminalScreen(Screen):
         app.tmux.resize(layout.visible_cols, layout.visible_rows)
         snapshot = app.tmux.capture(self.scroll_offset, height_rows=layout.visible_rows)
         layout = self._layout_for_snapshot(snapshot)
+        self._last_visible_rows = layout.visible_rows
         width = app.config.display.width
 
         if layout.minimal:
@@ -72,6 +76,7 @@ class TerminalScreen(Screen):
             max_rows=layout.visible_rows,
             max_cols=layout.visible_cols,
         )
+        self._draw_cursor(draw, layout, snapshot)
 
     def on_button(self, button: str, long_press: bool) -> bool:
         terminal_cfg = self.context.app.config.terminal
@@ -107,6 +112,29 @@ class TerminalScreen(Screen):
     def get_button_hints(self) -> list[str]:
         return ["A up/new", "B dn/kill", "X win", "Y enter"]
 
+    def on_keyboard_event(self, event: KeyboardEvent) -> bool:
+        if not event.ctrl or event.alt:
+            return False
+        if event.key == "up":
+            self._scroll_lines(self.context.app.config.terminal.scroll_step)
+            return True
+        if event.key == "down":
+            self._scroll_lines(-self.context.app.config.terminal.scroll_step)
+            return True
+        if event.key == "pageup":
+            self._scroll_lines(self._page_scroll_step())
+            return True
+        if event.key == "pagedown":
+            self._scroll_lines(-self._page_scroll_step())
+            return True
+        if event.key == "home":
+            self.scroll_offset = self.context.app.config.terminal.pane_history
+            return True
+        if event.key == "end":
+            self.scroll_offset = 0
+            return True
+        return False
+
     def _draw_frame(
         self,
         draw: ImageDraw.ImageDraw,
@@ -122,15 +150,16 @@ class TerminalScreen(Screen):
             fill="#080B0A",
         )
 
-        active_window = snapshot.active_window.lstrip("* ").strip() or "-"
         pane_name = snapshot.pane_title.strip() or snapshot.pane_command
         pane_path = self._short_path(snapshot.pane_path, max_parts=2)
         scroll_label = "LIVE" if self.scroll_offset == 0 else f"SCROLL -{self.scroll_offset}"
-        header_left = f"{active_window} {pane_name}".strip()
-        draw_label(draw, 14, 14, self._truncate(header_left, 22), self.context.app.font, FG)
-        draw_label(draw, 192, 14, f"{snapshot.window_count:02} WIN", self.context.app.font, ACCENT)
-        draw_label(draw, 248, 14, self._truncate(scroll_label, 11), self.context.app.font, FG)
-        draw_label(draw, 14, 30, self._truncate(pane_path, 28), self.context.app.font, DIM)
+        summary = self._window_summary(snapshot)
+        summary_width = len(summary) * cell_width(self.context.app.font)
+        count_x = max(96, width - 16 - summary_width)
+        draw_label(draw, 14, 14, self._truncate(pane_name, 15), self.context.app.font, FG)
+        draw_label(draw, count_x, 14, summary, self.context.app.font, ACCENT)
+        second_line = pane_path if self.scroll_offset == 0 else f"{pane_path} [{scroll_label}]"
+        draw_label(draw, 14, 30, self._truncate(second_line, 24), self.context.app.font, DIM)
 
     def _draw_minimal_frame(self, draw: ImageDraw.ImageDraw, layout: TerminalLayout) -> None:
         draw.rounded_rectangle(
@@ -139,6 +168,12 @@ class TerminalScreen(Screen):
             outline="#1A2420",
             fill="#060806",
         )
+
+    def _scroll_lines(self, delta: int) -> None:
+        self.scroll_offset = max(0, min(self.context.app.config.terminal.pane_history, self.scroll_offset + delta))
+
+    def _page_scroll_step(self) -> int:
+        return max(self.context.app.config.terminal.scroll_step * 2, self._last_visible_rows - 1)
 
     def _layout_for_snapshot(self, snapshot) -> TerminalLayout:
         width = self.context.app.config.display.width
@@ -176,6 +211,26 @@ class TerminalScreen(Screen):
         if pane_command in commands:
             return True
         return any(pane_title == command or pane_title.startswith(f"{command} ") for command in commands)
+
+    def _draw_cursor(self, draw: ImageDraw.ImageDraw, layout: TerminalLayout, snapshot) -> None:
+        if not snapshot.cursor_visible or snapshot.pane_in_mode or self.scroll_offset != 0:
+            return
+        if int(time.monotonic() * 2) % 2:
+            return
+        if snapshot.cursor_y < 0 or snapshot.cursor_y >= layout.visible_rows:
+            return
+        if snapshot.cursor_x < 0 or snapshot.cursor_x >= layout.visible_cols:
+            return
+        width = cell_width(self.context.app.terminal_font)
+        x = layout.origin[0] + snapshot.cursor_x * width
+        y = layout.origin[1] + snapshot.cursor_y * self._line_height
+        draw.rectangle((x, y, x + max(1, width - 2), y + self._line_height - 2), outline=ACCENT)
+
+    @staticmethod
+    def _window_summary(snapshot) -> str:
+        current = snapshot.active_window_position or 1
+        total = max(1, snapshot.window_count)
+        return f"{current}/{total}"
 
     @staticmethod
     def _truncate(text: str, limit: int) -> str:

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$#" -eq 0 ]; then
+  exec sudo /opt/altoids/runtime/bin/altoidsctl stage "$PWD"
+fi
+
+exec sudo /opt/altoids/runtime/bin/altoidsctl stage "$@"

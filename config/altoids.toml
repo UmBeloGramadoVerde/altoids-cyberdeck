@@ -1,9 +1,12 @@
 [display]
-width = 320
+backend = "whisplay"
+width = 280
 height = 240
 fps_active = 12
 fps_idle = 1
 backlight_brightness = 1.0
+rotation = 270
+driver_path = "vendor/Whisplay/Driver"
 
 [sleep]
 idle_seconds = 60
@@ -30,5 +33,21 @@ temperature_warn_c = 70.0
 
 [wifi]
 scan_cache_seconds = 15.0
+
+[audio]
+enabled = true
+card = "wm8960soundcard"
+volume_percent = 70
+muted = false
+cue_screen_change = true
+cue_wake = true
+cue_boot = true
+cue_wifi = true
+cue_error = true
+
+[led]
+enabled = true
+pulses = true
+brightness = 0.35
 
 [wifi.passwords]

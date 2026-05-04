@@ -4,10 +4,14 @@ After=multi-user.target bluetooth.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/altoids
-ExecStart=/opt/altoids/.venv/bin/python -m altoids
+WorkingDirectory=/opt/altoids/current
+RuntimeDirectory=altoids
+ExecStart=/opt/altoids/runtime/bin/altoids-supervisor
+ExecReload=/opt/altoids/runtime/bin/altoidsctl reload
 Restart=on-failure
 RestartSec=5
+TimeoutStartSec=40
+TimeoutStopSec=15
 User=root
 
 [Install]

@@ -37,17 +37,20 @@ class HomeScreen(Screen):
         now = time.strftime("%H:%M")
         uptime = stats["uptime"]
         mascot = self.animator.current()
-        buffer.paste(mascot, (44, 28))
+        width = app.config.display.width
+        buffer.paste(mascot, (16, 28))
 
-        draw_label(draw, 112, 48, f"{now}  uptime {uptime}", app.font_large, FG)
-        draw_label(draw, 48, 120, f"\"{MESSAGES[self.message_index]}\"", app.font, ACCENT)
+        draw_label(draw, 84, 48, f"{now}", app.font_large, FG)
+        draw_label(draw, 84, 70, f"uptime {uptime}", app.font, FG)
+        draw_label(draw, 20, 118, f"\"{MESSAGES[self.message_index][:28]}\"", app.font, ACCENT)
 
-        draw_status_dot(draw, 32, 168, True, ACCENT)
-        draw_label(draw, 48, 164, f"{stats['terminal_windows']} shells", app.font)
-        draw_status_dot(draw, 150, 168, app.bluetooth_status.connected, ACCENT)
-        draw_label(draw, 166, 164, "BT", app.font)
-        draw_label(draw, 228, 164, stats["temperature_label"], app.font)
-        draw_progress_bar(draw, 228, 182, 64, stats["temperature_pct"], ACCENT)
+        draw_status_dot(draw, 20, 164, True, ACCENT)
+        draw_label(draw, 36, 160, f"{stats['terminal_windows']} shells", app.font)
+        draw_status_dot(draw, 136, 164, app.bluetooth_status.connected, ACCENT)
+        draw_label(draw, 152, 160, "BT", app.font)
+        temp_x = width - 76
+        draw_label(draw, temp_x, 160, stats["temperature_label"], app.font)
+        draw_progress_bar(draw, temp_x, 178, 56, stats["temperature_pct"], ACCENT)
 
     def on_button(self, button: str, long_press: bool) -> bool:
         if button == "X":

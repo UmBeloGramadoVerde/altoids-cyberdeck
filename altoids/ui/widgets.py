@@ -33,6 +33,6 @@ def draw_button_bar(draw: ImageDraw.ImageDraw, width: int, height: int, hints: l
     draw.rectangle((0, top, width, height), fill=BG)
     draw_separator(draw, top, width)
     labels = hints[:4] + ["-"] * max(0, 4 - len(hints))
-    positions = [8, 88, 168, 248]
-    for position, text in zip(positions, labels[:4]):
-        draw.text((position, top + 7), text, font=font, fill=FG)
+    segment_width = max(1, width // 4)
+    for index, text in enumerate(labels[:4]):
+        draw.text((8 + index * segment_width, top + 7), text, font=font, fill=FG)

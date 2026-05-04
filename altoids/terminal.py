@@ -12,10 +12,15 @@ from typing import Iterable
 class TerminalSnapshot:
     lines: list[str]
     window_count: int
+    active_window_position: int
     active_window: str
     pane_title: str
     pane_path: str
     pane_command: str
+    cursor_x: int
+    cursor_y: int
+    cursor_visible: bool
+    pane_in_mode: bool
 
 
 class TmuxManager:
@@ -49,6 +54,9 @@ class TmuxManager:
     def _target(self) -> str:
         return self.session_name
 
+    def _start_directory(self) -> str:
+        return str(Path.home())
+
     def ensure_session(self) -> None:
         if not self.available:
             return
@@ -61,6 +69,8 @@ class TmuxManager:
             "-d",
             "-s",
             self.session_name,
+            "-c",
+            self._start_directory(),
             "-x",
             str(self.width_chars),
             "-y",
@@ -81,10 +91,15 @@ class TmuxManager:
                     "Install tmux to enable persistent shells.",
                 ],
                 window_count=0,
+                active_window_position=0,
                 active_window="-",
                 pane_title="-",
                 pane_path="-",
                 pane_command="-",
+                cursor_x=0,
+                cursor_y=0,
+                cursor_visible=False,
+                pane_in_mode=False,
             )
         self.ensure_session()
         proc = self._run("capture-pane", "-p", "-e", "-J", "-S", f"-{self.pane_history}", "-t", self._target())
@@ -94,15 +109,21 @@ class TmuxManager:
         start = max(0, end - row_count)
         lines = all_lines[start:end]
         windows = self.list_windows()
-        active = next((window for window in windows if window.startswith("*")), windows[0] if windows else "-")
-        pane_title, pane_path, pane_command = self._pane_metadata()
+        active_index = next((index for index, window in enumerate(windows) if window.startswith("*")), -1)
+        active = windows[active_index] if active_index >= 0 else (windows[0] if windows else "-")
+        pane_title, pane_path, pane_command, cursor_x, cursor_y, cursor_visible, pane_in_mode = self._pane_metadata()
         return TerminalSnapshot(
             lines=lines,
             window_count=len(windows),
+            active_window_position=active_index + 1 if active_index >= 0 else 0,
             active_window=active,
             pane_title=pane_title,
             pane_path=pane_path,
             pane_command=pane_command,
+            cursor_x=cursor_x,
+            cursor_y=cursor_y,
+            cursor_visible=cursor_visible,
+            pane_in_mode=pane_in_mode,
         )
 
     def list_windows(self) -> list[str]:
@@ -135,11 +156,17 @@ class TmuxManager:
         self.ensure_session()
         self._run("previous-window", "-t", self.session_name)
 
+    def select_window(self, index: int) -> None:
+        if not self.available or index < 1:
+            return
+        self.ensure_session()
+        self._run("select-window", "-t", f"{self.session_name}:{index}")
+
     def create_window(self, name: str | None = None) -> None:
         if not self.available:
             return
         self.ensure_session()
-        args = ["new-window", "-t", self.session_name]
+        args = ["new-window", "-t", self.session_name, "-c", self._start_directory()]
         if name:
             args.extend(["-n", name])
         shell_command = self._shell_command()
@@ -177,20 +204,29 @@ class TmuxManager:
         )
         self._last_size = target_size
 
-    def _pane_metadata(self) -> tuple[str, str, str]:
+    def _pane_metadata(self) -> tuple[str, str, str, int, int, bool, bool]:
         proc = self._run(
             "display-message",
             "-p",
             "-t",
             self._target(),
-            "#{pane_title}\t#{pane_current_path}\t#{pane_current_command}",
+            "#{pane_title}\t#{pane_current_path}\t#{pane_current_command}\t#{cursor_x}\t#{cursor_y}\t#{cursor_flag}\t#{pane_in_mode}",
         )
         if proc.returncode != 0:
-            return "-", "-", "-"
-        parts = proc.stdout.rstrip("\n").split("\t", 2)
-        if len(parts) != 3:
-            return "-", "-", "-"
-        return tuple(part or "-" for part in parts)  # type: ignore[return-value]
+            return "-", "-", "-", 0, 0, False, False
+        parts = proc.stdout.rstrip("\n").split("\t")
+        if len(parts) != 7:
+            return "-", "-", "-", 0, 0, False, False
+        pane_title, pane_path, pane_command, cursor_x, cursor_y, cursor_flag, pane_in_mode = parts
+        return (
+            pane_title or "-",
+            pane_path or "-",
+            pane_command or "-",
+            _parse_int(cursor_x),
+            _parse_int(cursor_y),
+            cursor_flag == "1",
+            pane_in_mode == "1",
+        )
 
     def _shell_command(self) -> str:
         shell = shutil.which("bash") or shutil.which("sh")
@@ -211,3 +247,10 @@ class TmuxManager:
 
 def shlex_quote(value: str) -> str:
     return shlex.quote(value)
+
+
+def _parse_int(value: str) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0

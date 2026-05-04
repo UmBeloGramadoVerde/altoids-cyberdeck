@@ -1,6 +1,6 @@
 # Altoids Cyberdeck
 
-Control software for an Altoids tin cyberdeck built around a Raspberry Pi Zero 2W and Pimoroni Display HAT Mini. The UI is meant to feel closer to a tiny instrument or gadget than a raw Linux console: playful, minimal, and persistent.
+Control software for an Altoids tin cyberdeck built around a Raspberry Pi Zero 2W and PiSugar Whisplay. The UI is meant to feel closer to a tiny instrument or gadget than a raw Linux console: playful, minimal, and persistent.
 
 This repository currently contains the first working scaffold of that system:
 
@@ -16,7 +16,7 @@ This repository currently contains the first working scaffold of that system:
 The original product direction is:
 
 - Teenage Engineering meets Flipper Zero
-- 320x240 display with a crisp bitmap-style UI
+- 280x240 logical canvas rotated onto the Whisplay's 240x280 panel
 - restricted five-color palette
 - 53x20 terminal grid
 - persistent shells across reboot and power loss
@@ -67,7 +67,13 @@ The app loop does four things:
 3. Renders the active screen plus the bottom button bar.
 4. Pushes the frame to the display backend.
 
-The current implementation uses a `Display` abstraction in [altoids/display.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/display.py:1). On Pi hardware it should use `displayhatmini`. When that module is missing, it falls back to saving the latest rendered frame to `artifacts/last-frame.png`. For remote development without the physical display, a lightweight browser-based viewer is also available.
+The current implementation uses a `Display` abstraction in [altoids/display.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/display.py:1). On Pi hardware it now prefers the PiSugar `WhisPlayBoard` driver and rotates the framebuffer 90 degrees clockwise before pushing it to the physical `240x280` LCD, which matches a panel mounted 90 degrees counter-clockwise in the enclosure. When the hardware driver is missing, it falls back to saving the latest rendered frame to `artifacts/last-frame.png`. For remote development without the physical display, a lightweight browser-based viewer is also available.
+
+When Whisplay hardware is active, the app also enables Whisplay-only accent features:
+
+- generated WM8960 speaker cues for boot, wake, screen changes, Wi‑Fi success/failure, and errors
+- RGB LED pulses for those same major events
+- standby-aware power saving that shuts off the LCD backlight, clears the RGB LED, and suppresses accent audio while sleeping
 
 ## Screens
 
@@ -91,6 +97,8 @@ Current controls:
 - `B`: next message
 - `X`: open terminal
 - `Y`: open system screen
+
+Global keyboard help is available from any screen with `F1`, `Ctrl+H`, `Ctrl+/`, or `Meta`, `H`. The overlay is paged; use `Left` / `Right`, `Up` / `Down`, `Tab`, or `Space` to switch pages, and `Esc`, `Enter`, `F1`, `Ctrl+H`, `Ctrl+/`, or `H` to close it.
 
 ### Terminal
 
@@ -120,9 +128,17 @@ Current controls:
 Keyboard behavior on the terminal screen:
 
 - plain text is typed into tmux
+- `Ctrl+Up` / `Ctrl+Down`: scroll the captured terminal view
+- `Ctrl+PageUp` / `Ctrl+PageDown`: page the terminal scrollback
+- `Ctrl+Home` / `Ctrl+End`: jump to the oldest captured lines or back to live output
 - `Ctrl` + letter chords such as `Ctrl+C` are forwarded into tmux
+- `F1`, `Ctrl+H`, `Ctrl+/`, or `Meta`, `H`: open keyboard shortcut help
 - `Meta`, `A` / `S`: previous / next tmux window
+- `Meta`, `1`..`9`: jump to tmux windows 1 through 9
+- `Meta`, `0`: jump to tmux window 10
 - `Meta`, `D` / `F`: create / close tmux window
+- `Meta`, `Q` / `W` / `E`: jump to home / terminal / system
+- `Meta`, `Z` / `X`: previous / next app screen
 
 Note: the plan called for `pyte`-based ANSI rendering, but the current code strips ANSI sequences and renders plain text via [altoids/renderer.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/renderer.py:1). That is a deliberate simplification for the first pass.
 
@@ -153,6 +169,8 @@ Current controls:
 
 If the selected Wi‑Fi network is secured and no working password is cached, the system screen now prompts for a password from the keyboard. `Enter` submits, `Backspace` edits, and `Esc` cancels.
 
+On the system screen, `Meta`, `J` / `K` mirrors the `A` / `B` Wi‑Fi selection buttons, and `Meta`, `R` / `C` mirrors scan / connect.
+
 Wi‑Fi management is implemented in [altoids/wifi.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/wifi.py:1) and currently depends on `nmcli`, which means the Pi should use NetworkManager.
 
 ## Configuration
@@ -161,7 +179,9 @@ Application config lives in [config/altoids.toml](/Users/kaynaoliveira/Documents
 
 Current config sections:
 
-- `[display]`: display dimensions, FPS, backlight brightness
+- `[display]`: backend, logical dimensions, rotation, FPS, backlight brightness, driver path
+- `[audio]`: Whisplay-only speaker cue settings and volume/mute defaults
+- `[led]`: Whisplay-only RGB LED pulse settings
 - `[sleep]`: idle timeout
 - `[ui]`: font path, font size, animation timings
 - `[terminal]`: tmux session name, history depth, terminal geometry
@@ -172,6 +192,13 @@ Current config sections:
 Example:
 
 ```toml
+[display]
+backend = "whisplay"
+width = 280
+height = 240
+rotation = 270
+driver_path = "vendor/Whisplay/Driver"
+
 [wifi]
 scan_cache_seconds = 15.0
 
@@ -196,7 +223,10 @@ It currently:
 
 - installs Python and tmux dependencies
 - uses distro `python3-gi` and `python3-gi-cairo` packages instead of building `PyGObject` from `pip`
+- installs `alsa-utils` for WM8960 mixer and playback control
+- installs `python3-spidev` and `python3-libgpiod` for the Whisplay LCD driver
 - installs `network-manager`
+- clones the PiSugar Whisplay driver into `/opt/altoids/vendor/Whisplay`
 - copies the bundled `tmux.conf`
 - installs the `altoids.service` systemd unit
 - enables the service
@@ -205,6 +235,21 @@ Related config files:
 
 - [config/altoids.service](/Users/kaynaoliveira/Documents/GitHub/altoids/config/altoids.service:1)
 - [config/tmux.conf](/Users/kaynaoliveira/Documents/GitHub/altoids/config/tmux.conf:1)
+
+Whisplay audio is still a separate vendor step. PiSugar's current docs say the WM8960 installer targets full Raspberry Pi OS rather than Lite, so run their audio installer after `setup.sh` if you need the speaker/mic path.
+
+## Safe Reload Flow
+
+The service now runs behind a stable supervisor entrypoint instead of launching `python -m altoids` directly. Releases are staged into versioned directories under `/opt/altoids/releases`, then promoted only after the new build passes a self-test and survives a short health window.
+
+The intended operator loop from the tmux shell is:
+
+- `qs`: copy the current checkout into a new staged release
+- `reload`: ask the supervisor to switch to that staged release
+- `qload`: roll back to the previous known-good release
+- `deck-status`: show the active, previous, and staged release plus the last reload result
+
+The app now also supports `python -m altoids --self-test`, which initializes the UI stack, renders one frame, and exits non-zero on startup failure. The supervisor uses this with a JSON health file under `/run/altoids/health.json` to decide whether a candidate release is safe to keep running.
 
 The original plan also called for overlayfs and a writable tmux state area for better power-loss tolerance. Those operational steps are not yet fully automated in this repository.
 
@@ -221,6 +266,10 @@ The bundled tmux config enables:
 - automatic restore
 - pane content capture
 - aggressive five-minute save intervals
+- direct window jumps on `Alt+1` through `Alt+0`
+- prefix-free previous / next window on `Shift+Left` / `Shift+Right` and `Alt+Left` / `Alt+Right`
+- prefix-free pane movement on `Alt+h`, `Alt+j`, `Alt+k`, `Alt+l`
+- confirmation before prefix-based pane or window kills
 
 This is intended to preserve shell layout, working directories, and scrollback across reboot. It does not preserve the in-memory state of interactive processes.
 
@@ -268,6 +317,7 @@ Web viewer features:
 - clickable `A`, `B`, `X`, `Y` buttons
 - clickable long-press variants for `A`, `B`, `X`, `Y`
 - browser keyboard forwarding for letters, Enter, Backspace, Tab, Escape, arrows, and the host `Meta` key
+- browser-side `F1` help toggle is available where the host browser forwards that key
 
 For a short render smoke test:
 
