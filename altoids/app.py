@@ -18,8 +18,9 @@ except ModuleNotFoundError:  # pragma: no cover
 
 from .accents import AccentManager
 from .bluetooth import BluetoothMonitor
-from .colors import ACCENT, BG, DIM, FG
+from .colors import ACCENT, BG, DIM, FG, SURFACE_ALT
 from .config import AltoidsConfig, load_config
+from .codex_session import CodexSessionStore
 from .display import Display
 from .input_buttons import ButtonEvent, ButtonInput
 from .input_keyboard import KeyboardEvent, KeyboardInput
@@ -27,7 +28,7 @@ from .sleep import SleepManager
 from .terminal import TmuxManager
 from .wifi import WifiManager
 from .webviewer import WebViewer
-from .ui import HomeScreen, Screen, ScreenContext, SystemScreen, TerminalScreen
+from .ui import GameSelectScreen, HomeScreen, MagiRouteScreen, Screen, ScreenContext, SyncDeflectScreen, SystemScreen, TerminalScreen
 from .ui.widgets import draw_label
 from .ui.widgets import draw_button_bar
 
@@ -92,6 +93,9 @@ class AltoidsApp:
             backend=config.display.backend,
             rotation=config.display.rotation,
             driver_path=config.display_driver_path,
+            transfer_quantization=config.display.transfer_quantization,
+            spi_speed_hz=config.display.spi_speed_hz,
+            split_dirty_regions=config.display.split_dirty_regions,
         )
         self.buffer = Image.new("RGB", (config.display.width, config.display.height), BG)
         self.draw = ImageDraw.Draw(self.buffer)
@@ -110,6 +114,10 @@ class AltoidsApp:
             config.terminal.pane_history,
             config.shell_rc_path,
         )
+        self.codex_sessions = CodexSessionStore(
+            config.codex_home_path,
+            scan_limit=config.terminal.codex_scan_limit,
+        )
         self.wifi = WifiManager(
             passwords=dict(config.wifi.passwords),
             scan_cache_seconds=config.wifi.scan_cache_seconds,
@@ -120,10 +128,13 @@ class AltoidsApp:
         self.bluetooth_status = self.bluetooth_monitor.poll()
         self.sleep_manager = SleepManager(config.sleep.idle_seconds)
         self.accents = AccentManager(self.display, config.audio, config.led)
-        self.screen_order = ["home", "term", "system"]
+        self.screen_order = ["home", "game", "term", "system"]
         context = ScreenContext(app=self)
         self.screens: dict[str, Screen] = {
             "home": HomeScreen(context),
+            "game": GameSelectScreen(context),
+            "sync_deflect": SyncDeflectScreen(context),
+            "magi_route": MagiRouteScreen(context),
             "term": TerminalScreen(context),
             "system": SystemScreen(context),
         }
@@ -133,9 +144,12 @@ class AltoidsApp:
         self.command_mode_deadline = 0.0
         self.help_visible = False
         self.help_page_index = 0
+        self.help_scroll_offsets: dict[int, int] = {}
         self.web_viewer = WebViewer(host=web_host, port=web_port) if web_viewer else None
         self._active_fps = max(config.display.fps_active, 20) if self.web_viewer is not None else config.display.fps_active
         self._boot_accent_fired = False
+        self._last_input_event_at: float | None = None
+        self._last_input_to_render_ms: float | None = None
 
     def _load_font(
         self,
@@ -172,6 +186,10 @@ class AltoidsApp:
     def active_screen(self) -> Screen:
         return self.screens[self.active_screen_name]
 
+    @property
+    def shows_button_bar(self) -> bool:
+        return not self.display.is_whisplay
+
     def set_screen(self, name: str) -> None:
         if name not in self.screens or self.active_screen_name == name:
             return
@@ -185,6 +203,7 @@ class AltoidsApp:
         self.needs_redraw = True
 
     def handle_button_event(self, event: ButtonEvent) -> None:
+        self._mark_input_event()
         if self.sleep_manager.sleeping:
             self.sleep_manager.bump()
             self.display.exit_standby(self.config.display.backlight_brightness)
@@ -200,6 +219,7 @@ class AltoidsApp:
         self.needs_redraw |= self.active_screen.on_button(event.button, event.long_press)
 
     def handle_keyboard_event(self, event: KeyboardEvent) -> None:
+        self._mark_input_event()
         if self.sleep_manager.sleeping:
             self.sleep_manager.bump()
             self.display.exit_standby(self.config.display.backlight_brightness)
@@ -271,6 +291,9 @@ class AltoidsApp:
         if event.key == "e":
             self.set_screen("system")
             return True
+        if event.key == "g":
+            self.set_screen("game")
+            return True
         if event.key == "a":
             self.tmux.select_previous_window()
             return True
@@ -339,6 +362,8 @@ class AltoidsApp:
         now = time.monotonic()
         if self._system_snapshot_cache is not None and now - self._system_snapshot_cache.captured_at < 1.0:
             return self._system_snapshot_cache.value
+        if self._last_input_event_at is not None and self._system_snapshot_cache is not None:
+            return self._system_snapshot_cache.value
         cpu_pct = psutil.cpu_percent() / 100.0 if psutil else 0.0
         mem_pct = psutil.virtual_memory().percent / 100.0 if psutil else 0.0
         disk = shutil.disk_usage("/")
@@ -401,8 +426,12 @@ class AltoidsApp:
                     ("F1", "toggle help"),
                     ("Ctrl+H", "toggle help"),
                     ("Ctrl+/", "toggle help"),
+                    ("Help: 1-6", "jump to page"),
+                    ("Help: Left/Right", "prev/next page"),
+                    ("Help: Up/Down", "scroll page"),
                     ("Meta then H", "help"),
                     ("Meta then Q", "home"),
+                    ("Meta then G", "game"),
                     ("Meta then W", "terminal"),
                     ("Meta then E", "system"),
                     ("Meta then Z/X", "prev/next screen"),
@@ -423,6 +452,21 @@ class AltoidsApp:
                 ],
             ),
             HelpPage(
+                title="GAME",
+                rows=[
+                    ("Meta then G", "open picker"),
+                    ("Picker Up/Down", "select game"),
+                    ("Picker 1/2", "quick launch"),
+                    ("Picker Space", "load game"),
+                    ("SYNC Space", "start / deflect"),
+                    ("SYNC W/S", "move field"),
+                    ("MAGI arrows", "move cursor"),
+                    ("MAGI Space", "rotate tile"),
+                    ("R", "restart active game"),
+                    ("Q / Esc", "game menu"),
+                ],
+            ),
+            HelpPage(
                 title="SYSTEM",
                 rows=[
                     ("Long A/B", "prev/next subpage"),
@@ -435,6 +479,26 @@ class AltoidsApp:
                     ("Pass: Esc", "cancel"),
                     ("Help: A/B", "prev/next page"),
                     ("Help: Esc", "close help"),
+                ],
+            ),
+            HelpPage(
+                title="CDX",
+                rows=[
+                    ("Enter", "send composer"),
+                    ("Esc", "clear composer; quit if empty"),
+                    ("Left/Right", "move composer cursor"),
+                    ("Home/End", "start/end composer"),
+                    ("Backspace/Delete", "edit composer"),
+                    ("Up/Down", "scroll transcript"),
+                    ("PgUp/PgDn", "page transcript"),
+                    ("Ctrl+L", "refresh recent threads"),
+                    ("Approval: 1", "yes"),
+                    ("Approval: 2", "yes for session"),
+                    ("Approval: 3", "no"),
+                    ("Approval: 4", "no with redirect"),
+                    ("Startup Up/Down", "choose thread"),
+                    ("Startup Enter", "open selection"),
+                    ("Startup Q", "quit picker"),
                 ],
             ),
             HelpPage(
@@ -474,16 +538,65 @@ class AltoidsApp:
         if event.key in {"escape", "enter"} or self._is_help_shortcut(event):
             self.toggle_help()
             return True
-        if event.key in {"left", "up"}:
+        if self._select_help_page_by_key(event.key):
+            return True
+        if event.key == "left":
             self.help_page_index = (self.help_page_index - 1) % len(self.help_pages)
             return True
-        if event.key in {"right", "down", "tab"} or event.raw_key == "KEY_SPACE":
+        if event.key in {"right", "tab"} or event.raw_key == "KEY_SPACE":
             self.help_page_index = (self.help_page_index + 1) % len(self.help_pages)
+            return True
+        if event.key == "up":
+            self._scroll_help(-1)
+            return True
+        if event.key == "down":
+            self._scroll_help(1)
+            return True
+        if event.key == "pageup":
+            self._scroll_help(-5)
+            return True
+        if event.key == "pagedown":
+            self._scroll_help(5)
+            return True
+        if event.key == "home":
+            self._set_help_scroll(0)
+            return True
+        if event.key == "end":
+            self._set_help_scroll(self._max_help_scroll())
             return True
         if event.key == "h" and event.ctrl is False and event.alt is False:
             self.toggle_help()
             return True
         return False
+
+    def _select_help_page_by_key(self, key: str) -> bool:
+        if not key.isdigit():
+            return False
+        page_number = int(key)
+        if page_number == 0 or page_number > len(self.help_pages):
+            return False
+        self.help_page_index = page_number - 1
+        return True
+
+    def _scroll_help(self, delta: int) -> None:
+        self._set_help_scroll(self._current_help_scroll() + delta)
+
+    def _set_help_scroll(self, offset: int) -> None:
+        self.help_scroll_offsets[self.help_page_index] = min(max(0, offset), self._max_help_scroll())
+
+    def _current_help_scroll(self) -> int:
+        return self.help_scroll_offsets.get(self.help_page_index, 0)
+
+    def _max_help_scroll(self) -> int:
+        page = self.help_pages[self.help_page_index]
+        return max(0, len(page.rows) - self._help_visible_row_count())
+
+    def _help_visible_row_count(self) -> int:
+        height = self.config.display.height
+        top = 12
+        bottom = height - 30
+        first_row_y = top + 36
+        return max(1, (bottom - first_row_y - 8) // 20)
 
     @staticmethod
     def _is_help_shortcut(event: KeyboardEvent) -> bool:
@@ -502,13 +615,17 @@ class AltoidsApp:
         left = 10
         right = width - 10
         bottom = height - 30
-        self.draw.rounded_rectangle((left, top, right, bottom), radius=8, outline=ACCENT, fill="#08100D")
+        self.draw.rounded_rectangle((left, top, right, bottom), radius=8, outline=ACCENT, fill=SURFACE_ALT)
         page = self.help_pages[self.help_page_index]
+        self._set_help_scroll(self._current_help_scroll())
+        scroll = self._current_help_scroll()
+        visible_rows = self._help_visible_row_count()
         draw_label(self.draw, left + 10, top + 8, f"HELP {self.help_page_index + 1}/{len(self.help_pages)}", self.font, ACCENT)
-        draw_label(self.draw, right - 68, top + 8, page.title, self.font, FG)
+        scroll_label = f"{page.title} {scroll + 1}-{min(len(page.rows), scroll + visible_rows)}/{len(page.rows)}"
+        draw_label(self.draw, right - 112, top + 8, scroll_label, self.font, FG)
         self.draw.line((left + 8, top + 28, right - 8, top + 28), fill=DIM, width=1)
         row_y = top + 36
-        for shortcut, description in page.rows:
+        for shortcut, description in page.rows[scroll : scroll + visible_rows]:
             draw_label(self.draw, left + 10, row_y, shortcut, self.font, FG)
             draw_label(self.draw, left + 122, row_y, description, self.font, DIM)
             row_y += 20
@@ -521,17 +638,29 @@ class AltoidsApp:
             draw_label(self.draw, 268, 13, "CMD", self.font, FG)
         if self.help_visible:
             self._render_help_overlay()
-        draw_button_bar(
-            self.draw,
-            self.config.display.width,
-            self.config.display.height,
-            ["A prev", "B next", "X close", "Y close"] if self.help_visible else self.active_screen.get_button_hints(),
-            self.font,
-        )
+        if self.shows_button_bar:
+            draw_button_bar(
+                self.draw,
+                self.config.display.width,
+                self.config.display.height,
+                ["A prev", "B next", "X close", "Y close"] if self.help_visible else self.active_screen.get_button_hints(),
+                self.font,
+            )
         self.display.update(self.buffer)
         if self.web_viewer is not None:
             self.web_viewer.update(self.buffer)
+        if self._last_input_event_at is not None:
+            self._last_input_to_render_ms = (time.monotonic() - self._last_input_event_at) * 1000.0
+            self._last_input_event_at = None
         self.needs_redraw = False
+
+    def _mark_input_event(self) -> None:
+        if self._last_input_event_at is None:
+            self._last_input_event_at = time.monotonic()
+
+    @property
+    def input_render_pending(self) -> bool:
+        return self._last_input_event_at is not None
 
     def run(self, max_frames: int | None = None, health_reporter: HealthReporter | None = None) -> int:
         frame_count = 0
@@ -553,7 +682,8 @@ class AltoidsApp:
                     for event in web_events.keyboard_events:
                         self.handle_keyboard_event(event)
 
-                self.bluetooth_status = self.bluetooth_monitor.poll()
+                if not self.input_render_pending:
+                    self.bluetooth_status = self.bluetooth_monitor.poll()
                 if self.command_mode_deadline and not self.command_mode_active:
                     self.command_mode_deadline = 0.0
                     self.needs_redraw = True
@@ -577,12 +707,15 @@ class AltoidsApp:
                 if health_reporter is not None:
                     health_reporter.beat()
                 target_fps = self._active_fps if not self.sleep_manager.sleeping else self.config.display.fps_idle
-                time.sleep(max(0.01, 1.0 / max(1, target_fps)))
+                frame_interval = 1.0 / max(1, target_fps)
+                input_poll_interval = max(0.001, self.config.display.input_poll_interval)
+                time.sleep(min(frame_interval, input_poll_interval))
         finally:
             self.close()
 
     def close(self) -> None:
         self.accents.shutdown()
+        self.tmux.shutdown()
         self.display.shutdown()
         if self.web_viewer is not None:
             self.web_viewer.shutdown()
@@ -603,6 +736,10 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     config = load_config(args.config)
+    if args.self_test:
+        # Self-tests may run while the active release still owns the display GPIO lines.
+        # Force the mock backend so staged validation doesn't contend with the live app.
+        config.display.backend = "mock"
     app = AltoidsApp(config=config, web_viewer=args.web_viewer, web_host=args.web_host, web_port=args.web_port)
     health_reporter = HealthReporter(
         Path(args.health_file),

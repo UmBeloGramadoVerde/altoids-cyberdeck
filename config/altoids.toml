@@ -7,6 +7,9 @@ fps_idle = 1
 backlight_brightness = 1.0
 rotation = 270
 driver_path = "vendor/Whisplay/Driver"
+transfer_quantization = "rgb332"
+input_poll_interval = 0.005
+split_dirty_regions = false
 
 [sleep]
 idle_seconds = 60
@@ -27,6 +30,9 @@ scroll_step = 3
 shell_rc_path = "config/cyberdeck-shell.sh"
 font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
 font_size = 11
+codex_compact = false
+codex_home = "~/.codex"
+codex_scan_limit = 24
 
 [system]
 temperature_warn_c = 70.0

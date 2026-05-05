@@ -40,12 +40,12 @@ class AccentManager:
         "error": 0.4,
     }
     _LED_COLORS = {
-        "boot_complete": (0, 255, 200),
-        "wake": (220, 255, 255),
-        "screen_change": (0, 255, 170),
-        "wifi_success": (0, 255, 96),
-        "wifi_error": (255, 64, 64),
-        "error": (255, 64, 64),
+        "boot_complete": (92, 208, 148),
+        "wake": (240, 118, 27),
+        "screen_change": (92, 208, 148),
+        "wifi_success": (92, 208, 148),
+        "wifi_error": (240, 118, 27),
+        "error": (240, 118, 27),
     }
 
     def __init__(self, display: Display, audio_config: AudioConfig, led_config: LedConfig) -> None:

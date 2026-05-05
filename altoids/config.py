@@ -20,6 +20,10 @@ class DisplayConfig:
     backlight_brightness: float = 1.0
     rotation: int = 270
     driver_path: str = "vendor/Whisplay/Driver"
+    transfer_quantization: str = "rgb565"
+    spi_speed_hz: int | None = None
+    input_poll_interval: float = 0.005
+    split_dirty_regions: bool = False
 
 
 @dataclass(slots=True)
@@ -47,6 +51,9 @@ class TerminalConfig:
     font_path: str = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
     font_size: int = 11
     minimal_commands: list[str] = field(default_factory=lambda: ["codx", "codex"])
+    codex_compact: bool = False
+    codex_home: str = "~/.codex"
+    codex_scan_limit: int = 24
 
 
 @dataclass(slots=True)
@@ -106,6 +113,10 @@ class AltoidsConfig:
         if path.is_absolute():
             return path
         return self.root_dir / path
+
+    @property
+    def codex_home_path(self) -> Path:
+        return Path(self.terminal.codex_home).expanduser()
 
     @property
     def display_driver_path(self) -> Path:

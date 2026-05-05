@@ -15,7 +15,7 @@ from typing import Callable
 
 ROOT_DIR = Path(os.environ.get("ALTOIDS_RUNTIME_ROOT", "/opt/altoids"))
 RUN_DIR = Path(os.environ.get("ALTOIDS_RUNTIME_RUN", "/run/altoids"))
-STATE_DIR = Path(os.environ.get("ALTOIDS_RUNTIME_STATE", "/var/lib/altoids/runtime"))
+STATE_DIR = Path(os.environ.get("ALTOIDS_RUNTIME_STATE", str(RUN_DIR)))
 RELEASES_DIR = ROOT_DIR / "releases"
 CURRENT_LINK = ROOT_DIR / "current"
 PREVIOUS_LINK = ROOT_DIR / "previous"
@@ -140,6 +140,35 @@ def read_health(pid: int) -> dict[str, object] | None:
     return payload
 
 
+def python_for_release(release_dir: Path) -> Path:
+    release_python = release_dir / ".venv" / "bin" / "python"
+    if release_python.exists():
+        return release_python
+    shared_python = SHARED_VENV / "bin" / "python"
+    if shared_python.exists():
+        return shared_python
+    return Path(sys.executable)
+
+
+def run_self_test(release_dir: Path) -> tuple[bool, str]:
+    env = os.environ.copy()
+    env["ALTOIDS_RELEASE_ID"] = release_dir.name
+    command = [str(python_for_release(release_dir)), "-m", "altoids", "--self-test"]
+    result = subprocess.run(
+        command,
+        cwd=release_dir,
+        env=env,
+        text=True,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+    output = (result.stderr or result.stdout or "").strip()
+    if result.returncode == 0:
+        return True, output
+    return False, output or f"self-test exited with status {result.returncode}"
+
+
 def pid_is_running(pid: int) -> bool:
     try:
         os.kill(pid, 0)
@@ -194,7 +223,7 @@ class Supervisor:
             if current is None:
                 write_status("error", "no release configured")
                 return 1
-            self.launch_release(current, fallback=previous, reason="startup")
+            self.launch_release(current, fallback=previous, reason="startup", require_acceptance=False)
             while not self.stop_requested:
                 if self.reload_requested:
                     self.reload_requested = False
@@ -226,6 +255,15 @@ class Supervisor:
         if current is not None and candidate == current:
             write_status("ok", "staged release already active", release=short_path(candidate))
             return
+        healthy, output = run_self_test(candidate)
+        if not healthy:
+            write_status(
+                "error",
+                "staged release failed self-test",
+                release=short_path(candidate),
+                output=output[:MAX_LOG_CHARS],
+            )
+            return
         if current is None:
             self.launch_release(candidate, fallback=resolve_link(PREVIOUS_LINK), reason="reload")
             return
@@ -244,12 +282,8 @@ class Supervisor:
         self.stop_child()
         self.launch_release(candidate, fallback=current, reason="rollback")
 
-    def launch_release(self, release_dir: Path, fallback: Path | None, reason: str) -> None:
-        python_bin = release_dir / ".venv" / "bin" / "python"
-        if not python_bin.exists():
-            python_bin = SHARED_VENV / "bin" / "python"
-        if not python_bin.exists():
-            python_bin = Path(sys.executable)
+    def launch_release(self, release_dir: Path, fallback: Path | None, reason: str, require_acceptance: bool = True) -> None:
+        python_bin = python_for_release(release_dir)
         if HEALTH_FILE.exists():
             HEALTH_FILE.unlink()
         env = os.environ.copy()
@@ -257,13 +291,20 @@ class Supervisor:
         command = [str(python_bin), "-m", "altoids", "--health-file", str(HEALTH_FILE)]
         self.child = subprocess.Popen(command, cwd=release_dir, env=env, text=True)
         self.child_release = release_dir
-        self.pending_release = release_dir
-        self.pending_reason = reason
-        self.pending_started_at = time.monotonic()
-        self.pending_ready_at = 0.0
-        self.pending_fallback = fallback
+        if require_acceptance:
+            self.pending_release = release_dir
+            self.pending_reason = reason
+            self.pending_started_at = time.monotonic()
+            self.pending_ready_at = 0.0
+            self.pending_fallback = fallback
+        else:
+            self.pending_release = None
+            self.pending_reason = None
+            self.pending_started_at = 0.0
+            self.pending_ready_at = 0.0
+            self.pending_fallback = None
         write_status(
-            "starting",
+            "starting" if require_acceptance else "ok",
             f"launching {release_dir.name}",
             release=short_path(release_dir),
             fallback=short_path(fallback),
@@ -279,7 +320,10 @@ class Supervisor:
             if not self.pending_ready_at:
                 self.pending_ready_at = time.monotonic()
             if time.monotonic() - self.pending_ready_at >= ACCEPTANCE_WINDOW_SECONDS:
-                self.promote_pending_release()
+                try:
+                    self.promote_pending_release()
+                except OSError as exc:
+                    self.fail_pending_release(f"promotion failed: {exc}")
                 return
         if time.monotonic() - self.pending_started_at >= STARTUP_TIMEOUT_SECONDS:
             self.fail_pending_release("health timeout")
@@ -295,7 +339,7 @@ class Supervisor:
             release=short_path(release),
         )
         if release is not None:
-            self.launch_release(release, fallback=resolve_link(PREVIOUS_LINK), reason="restart")
+            self.launch_release(release, fallback=resolve_link(PREVIOUS_LINK), reason="restart", require_acceptance=False)
 
     def promote_pending_release(self) -> None:
         if self.pending_release is None:
@@ -338,7 +382,7 @@ class Supervisor:
         self.pending_ready_at = 0.0
         self.pending_fallback = None
         if fallback is not None:
-            self.launch_release(fallback, fallback=resolve_link(PREVIOUS_LINK), reason="rollback-recovery")
+            self.launch_release(fallback, fallback=resolve_link(PREVIOUS_LINK), reason="rollback-recovery", require_acceptance=False)
 
     def stop_child(self) -> None:
         if self.child is None:
@@ -376,6 +420,38 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
 def cmd_reload(_args: argparse.Namespace) -> int:
     signal_supervisor(signal.SIGHUP)
     print("reload requested")
+    return 0
+
+
+def cmd_activate(_args: argparse.Namespace) -> int:
+    candidate = resolve_link(STAGED_LINK)
+    if candidate is None:
+        raise SystemExit("no staged release")
+    current = resolve_link(CURRENT_LINK)
+    if current is not None and current == candidate:
+        write_status("ok", "staged release already active", current=short_path(current), staged=short_path(candidate))
+        print("staged release already active")
+        return 0
+    healthy, output = run_self_test(candidate)
+    if not healthy:
+        write_status(
+            "error",
+            "staged release failed self-test",
+            release=short_path(candidate),
+            output=output[:MAX_LOG_CHARS],
+        )
+        raise SystemExit(output or "staged release failed self-test")
+    if current is not None and current != candidate:
+        atomic_symlink(PREVIOUS_LINK, current)
+    atomic_symlink(CURRENT_LINK, candidate)
+    write_status(
+        "ok",
+        f"activated {candidate.name}",
+        current=short_path(candidate),
+        previous=short_path(current),
+        staged=short_path(candidate),
+    )
+    print(candidate)
     return 0
 
 
@@ -420,6 +496,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     reload_parser = subparsers.add_parser("reload", help="Ask the supervisor to switch to the staged release")
     reload_parser.set_defaults(func=cmd_reload)
+
+    activate = subparsers.add_parser("activate", help="Promote the staged release to current after self-test")
+    activate.set_defaults(func=cmd_activate)
 
     rollback = subparsers.add_parser("rollback", help="Ask the supervisor to switch back to the previous release")
     rollback.set_defaults(func=cmd_rollback)

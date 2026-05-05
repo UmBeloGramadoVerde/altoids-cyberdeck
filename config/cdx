@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ALTOIDS_ROOT="${ALTOIDS_ROOT:-/opt/altoids/current}"
+ALTOIDS_VENV="${ALTOIDS_VENV:-/opt/altoids/.venv/bin/python}"
+
+export PYTHONPATH="${ALTOIDS_ROOT}${PYTHONPATH:+:$PYTHONPATH}"
+
+exec "$ALTOIDS_VENV" -m altoids.cdx "$@"

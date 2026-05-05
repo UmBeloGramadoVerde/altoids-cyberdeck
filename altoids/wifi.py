@@ -53,12 +53,14 @@ class WifiManager:
             capture_output=True,
         )
 
-    def status(self) -> WifiStatus:
+    def status(self, allow_refresh: bool = True) -> WifiStatus:
         if not self.available:
             return WifiStatus(device=self.device, state="nmcli missing")
 
         now = time.monotonic()
         if self._cached_status is not None and now - self._last_status_at < 2.0:
+            return self._cached_status
+        if not allow_refresh and self._cached_status is not None:
             return self._cached_status
 
         proc = self._run("-m", "multiline", "-f", "DEVICE,TYPE,STATE,CONNECTION,SIGNAL", "device", "show")
@@ -88,7 +90,7 @@ class WifiManager:
         self._last_status_at = now
         return status
 
-    def scan(self, force: bool = False) -> list[WifiNetwork]:
+    def scan(self, force: bool = False, allow_refresh: bool = True) -> list[WifiNetwork]:
         if not self.available:
             self._cached_networks = []
             self._last_message = "nmcli not installed"
@@ -96,6 +98,8 @@ class WifiManager:
 
         now = time.monotonic()
         if not force and self._cached_networks and now - self._last_scan_at < self.scan_cache_seconds:
+            return self._cached_networks
+        if not allow_refresh:
             return self._cached_networks
 
         self._run("device", "wifi", "rescan")

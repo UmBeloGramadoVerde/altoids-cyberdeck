@@ -98,7 +98,7 @@ Current controls:
 - `X`: open terminal
 - `Y`: open system screen
 
-Global keyboard help is available from any screen with `F1`, `Ctrl+H`, `Ctrl+/`, or `Meta`, `H`. The overlay is paged; use `Left` / `Right`, `Up` / `Down`, `Tab`, or `Space` to switch pages, and `Esc`, `Enter`, `F1`, `Ctrl+H`, `Ctrl+/`, or `H` to close it.
+Global keyboard help is available from any screen with `F1`, `Ctrl+H`, `Ctrl+/`, or `Meta`, `H`. The overlay is paged; use `1`..`4` to jump directly to a help page, `Left` / `Right`, `Up` / `Down`, `Tab`, or `Space` to switch pages, and `Esc`, `Enter`, `F1`, `Ctrl+H`, `Ctrl+/`, or `H` to close it.
 
 ### Terminal
 
@@ -179,7 +179,7 @@ Application config lives in [config/altoids.toml](/Users/kaynaoliveira/Documents
 
 Current config sections:
 
-- `[display]`: backend, logical dimensions, rotation, FPS, backlight brightness, driver path
+- `[display]`: backend, logical dimensions, rotation, FPS, backlight brightness, driver path, transfer quantization
 - `[audio]`: Whisplay-only speaker cue settings and volume/mute defaults
 - `[led]`: Whisplay-only RGB LED pulse settings
 - `[sleep]`: idle timeout
@@ -198,6 +198,7 @@ width = 280
 height = 240
 rotation = 270
 driver_path = "vendor/Whisplay/Driver"
+transfer_quantization = "rgb332"
 
 [wifi]
 scan_cache_seconds = 15.0
@@ -215,6 +216,18 @@ shell_rc_path = "config/cyberdeck-shell.sh"
 
 Secured Wi‑Fi connections can now be joined interactively from the system screen without predefining passwords in config. Password entries from config remain supported as optional defaults.
 
+## `cdx`
+
+`cdx` is a separate deck-oriented Codex client. It talks to `codex app-server` over stdio, owns an explicit `threadId`, renders a feed-first live session view, and handles approvals through the app-server protocol instead of rollout-file heuristics.
+
+See [docs/cdx.md](/home/kayna/altoids-cyberdeck/docs/cdx.md:1) for:
+
+- how to launch and use `cdx`
+- keyboard shortcuts and startup flow
+- the approval workflow
+- the feed icon and layout design system
+- deployment notes for `runtime-sync` and `make update`
+
 ## Setup
 
 The intended deployment path is [setup.sh](/Users/kaynaoliveira/Documents/GitHub/altoids/setup.sh:1).
@@ -224,9 +237,11 @@ It currently:
 - installs Python and tmux dependencies
 - uses distro `python3-gi` and `python3-gi-cairo` packages instead of building `PyGObject` from `pip`
 - installs `alsa-utils` for WM8960 mixer and playback control
+- installs `i2c-tools`, `dkms`, `libasound2-plugins`, `unzip`, and `raspi-config` for PiSugar's WM8960 installer
 - installs `python3-spidev` and `python3-libgpiod` for the Whisplay LCD driver
 - installs `network-manager`
 - clones the PiSugar Whisplay driver into `/opt/altoids/vendor/Whisplay`
+- runs PiSugar's `Driver/install_wm8960_drive.sh` so the WM8960 overlay, modules, mixer service, and ALSA state are installed during setup
 - copies the bundled `tmux.conf`
 - installs the `altoids.service` systemd unit
 - enables the service
@@ -236,18 +251,27 @@ Related config files:
 - [config/altoids.service](/Users/kaynaoliveira/Documents/GitHub/altoids/config/altoids.service:1)
 - [config/tmux.conf](/Users/kaynaoliveira/Documents/GitHub/altoids/config/tmux.conf:1)
 
-Whisplay audio is still a separate vendor step. PiSugar's current docs say the WM8960 installer targets full Raspberry Pi OS rather than Lite, so run their audio installer after `setup.sh` if you need the speaker/mic path.
+PiSugar's installer edits `/boot/firmware/config.txt`, updates `/etc/modules`, installs `wm8960-soundcard.service`, and recommends a reboot after setup so ALSA re-enumerates the `wm8960soundcard` device cleanly.
 
 ## Safe Reload Flow
 
 The service now runs behind a stable supervisor entrypoint instead of launching `python -m altoids` directly. Releases are staged into versioned directories under `/opt/altoids/releases`, then promoted only after the new build passes a self-test and survives a short health window.
 
-The intended operator loop from the tmux shell is:
+The intended operator flow from the tmux shell is through the repo `Makefile`:
 
-- `qs`: copy the current checkout into a new staged release
-- `reload`: ask the supervisor to switch to that staged release
-- `qload`: roll back to the previous known-good release
-- `deck-status`: show the active, previous, and staged release plus the last reload result
+- `make stage`: copy the current checkout into a new staged release
+- `make reload`: ask the supervisor to switch to that staged release
+- `make update`: refresh the stable tmux config, re-source it into the running tmux server, then run a local self-test, stage the current checkout, reload it, and print status
+- `make rollback`: switch back to the previous known-good release when you have an operator path to trigger it
+- `make status`: show the active, previous, and staged release plus the last reload result
+- `make tmux-sync`: install `config/tmux.conf` to `/opt/altoids/runtime/tmux.conf`, point `/etc/tmux.conf` and `~/.tmux.conf` at it, then re-source it into the running tmux server
+- `make tmux-apply`: re-source `/opt/altoids/runtime/tmux.conf` into the running tmux server
+- `make tmux-install-user`: point `~/.tmux.conf` at `/opt/altoids/runtime/tmux.conf`
+- `make tmux-install-system`: point `/etc/tmux.conf` at `/opt/altoids/runtime/tmux.conf`
+
+The important behavior is that reloads are now explicit, staged operations rather than "quick save / quick load" shortcuts. That keeps the process focused on preparing a candidate build, validating it, and only then asking the supervisor to cut over.
+
+Tmux is intentionally handled through one stable path outside the staged release directories. That avoids the old problem where tmux was reading one file while the repo was changing another. The repo copy stays at `config/tmux.conf`, while the live path is `/opt/altoids/runtime/tmux.conf`.
 
 The app now also supports `python -m altoids --self-test`, which initializes the UI stack, renders one frame, and exits non-zero on startup failure. The supervisor uses this with a JSON health file under `/run/altoids/health.json` to decide whether a candidate release is safe to keep running.
 

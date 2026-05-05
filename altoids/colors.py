@@ -1,16 +1,26 @@
-BG = "#0D0D0D"
-FG = "#E0E0E0"
-ACCENT = "#00FFAA"
-DIM = "#555555"
-WARN = "#FF5555"
+BG = "#090E0D"
+FG = "#E7E1D3"
+ACCENT = "#5CD094"
+DIM = "#66706A"
+WARN = "#F0761B"
+DANGER = "#D95C4C"
+INFO = "#7398D9"
+AUX = "#A66CD4"
+COOL = "#5DBAB4"
+SURFACE = "#121315"
+SURFACE_ALT = "#16101A"
+SURFACE_PANEL = "#181B19"
+SURFACE_INSET = "#221A20"
+SURFACE_GRID = "#1A201D"
+SURFACE_OFF = "#24202A"
 
 ANSI_BASIC = {
     0: BG,
-    1: "#AA0000",
-    2: "#00AA66",
-    3: "#AAAA00",
-    4: "#4A90E2",
-    5: "#AA00AA",
-    6: "#00AAAA",
+    1: DANGER,
+    2: ACCENT,
+    3: WARN,
+    4: INFO,
+    5: AUX,
+    6: COOL,
     7: FG,
 }

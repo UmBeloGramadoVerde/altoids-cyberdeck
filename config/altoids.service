@@ -12,7 +12,7 @@ Restart=on-failure
 RestartSec=5
 TimeoutStartSec=40
 TimeoutStopSec=15
-User=root
+User=kayna
 
 [Install]
 WantedBy=multi-user.target

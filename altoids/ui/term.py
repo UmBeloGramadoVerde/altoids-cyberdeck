@@ -6,12 +6,13 @@ import time
 
 from PIL import ImageDraw
 
-from ..colors import ACCENT, DIM, FG
+from ..colors import ACCENT, DIM, FG, SURFACE, SURFACE_ALT, SURFACE_GRID, SURFACE_INSET, SURFACE_PANEL
 from ..input_keyboard import KeyboardEvent
 from ..renderer import cell_width, render_terminal, strip_ansi
 from .base import Screen, ScreenContext
 from .widgets import BUTTON_BAR_HEIGHT
 from .widgets import draw_label
+from .widgets import draw_status_dot
 
 
 @dataclass(slots=True)
@@ -28,8 +29,8 @@ class TerminalLayout:
 
 class TerminalScreen(Screen):
     name = "term"
-    _origin = (12, 42)
-    _header_height = 28
+    _origin = (12, 36)
+    _header_height = 20
     _refresh_interval = 0.08
 
     def __init__(self, context: ScreenContext) -> None:
@@ -37,6 +38,7 @@ class TerminalScreen(Screen):
         self.scroll_offset = 0
         self._refresh_elapsed = 0.0
         self._last_visible_rows = context.app.config.terminal.height_chars
+        self._last_layout_minimal = False
 
     def update(self, dt: float) -> bool:
         self._refresh_elapsed += dt
@@ -52,24 +54,27 @@ class TerminalScreen(Screen):
 
     def render(self, draw: ImageDraw.ImageDraw, buffer) -> None:
         app = self.context.app
-        snapshot = app.tmux.capture(self.scroll_offset)
-        layout = self._layout_for_snapshot(snapshot)
+        layout = self._layout_for_state(self._last_layout_minimal)
         app.tmux.resize(layout.visible_cols, layout.visible_rows)
-        snapshot = app.tmux.capture(self.scroll_offset, height_rows=layout.visible_rows)
+        snapshot = app.tmux.capture(
+            self.scroll_offset,
+            height_rows=layout.visible_rows,
+            fast=app.input_render_pending,
+        )
         layout = self._layout_for_snapshot(snapshot)
         self._last_visible_rows = layout.visible_rows
+        self._last_layout_minimal = layout.minimal
         width = app.config.display.width
+        signature = (layout.minimal, width, app.config.display.height, app.shows_button_bar)
+        buffer.paste(self.cached_background(signature, buffer.size, lambda bg_draw, bg_buffer: self._paint_static_background(bg_draw, bg_buffer, layout, width)))
+        draw = ImageDraw.Draw(buffer)
 
-        if layout.minimal:
-            self._draw_minimal_frame(draw, layout)
-        else:
+        if not layout.minimal:
             self._draw_frame(draw, width, layout, snapshot)
-            body_height = layout.body_bottom - layout.body_top
-            for y in range(layout.body_top + 1, layout.body_top + body_height, 4):
-                draw.line((layout.body_left + 2, y, layout.body_right - 2, y), fill="#101010", width=1)
+        lines = snapshot.lines
         render_terminal(
             draw,
-            snapshot.lines[-layout.visible_rows :],
+            lines[-layout.visible_rows :],
             app.terminal_font,
             layout.origin,
             line_height=self._line_height,
@@ -77,6 +82,20 @@ class TerminalScreen(Screen):
             max_cols=layout.visible_cols,
         )
         self._draw_cursor(draw, layout, snapshot)
+
+    def _paint_static_background(self, draw: ImageDraw.ImageDraw, buffer, layout: TerminalLayout, width: int) -> None:
+        if layout.minimal:
+            self._draw_minimal_frame(draw, layout)
+            return
+        draw.rounded_rectangle(
+            (layout.body_left, layout.body_top, layout.body_right, layout.body_bottom),
+            radius=8,
+            outline=DIM,
+            fill=SURFACE,
+        )
+        body_height = layout.body_bottom - layout.body_top
+        for y in range(layout.body_top + 1, layout.body_top + body_height, 4):
+            draw.line((layout.body_left + 2, y, layout.body_right - 2, y), fill=SURFACE_GRID, width=1)
 
     def on_button(self, button: str, long_press: bool) -> bool:
         terminal_cfg = self.context.app.config.terminal
@@ -113,8 +132,11 @@ class TerminalScreen(Screen):
         return ["A up/new", "B dn/kill", "X win", "Y enter"]
 
     def on_keyboard_event(self, event: KeyboardEvent) -> bool:
-        if not event.ctrl or event.alt:
+        if event.alt:
             return False
+        # Treat plain navigation keys as viewport controls on the terminal
+        # screen so they scroll the captured tmux buffer instead of being
+        # forwarded into the shell.
         if event.key == "up":
             self._scroll_lines(self.context.app.config.terminal.scroll_step)
             return True
@@ -142,31 +164,48 @@ class TerminalScreen(Screen):
         layout: TerminalLayout,
         snapshot,
     ) -> None:
-        draw.rounded_rectangle((layout.body_left, 8, width - 8, 32), radius=6, outline=ACCENT, fill="#101513")
-        draw.rounded_rectangle(
-            (layout.body_left, layout.body_top, layout.body_right, layout.body_bottom),
-            radius=8,
-            outline=DIM,
-            fill="#080B0A",
-        )
+        draw.rounded_rectangle((layout.body_left, 8, width - 8, 32), radius=6, outline=ACCENT, fill=SURFACE_PANEL)
 
         pane_name = snapshot.pane_title.strip() or snapshot.pane_command
-        pane_path = self._short_path(snapshot.pane_path, max_parts=2)
-        scroll_label = "LIVE" if self.scroll_offset == 0 else f"SCROLL -{self.scroll_offset}"
         summary = self._window_summary(snapshot)
+        self._draw_header_strip(draw, width, pane_name, summary)
+
+    def _draw_header_strip(
+        self,
+        draw: ImageDraw.ImageDraw,
+        width: int,
+        pane_name: str,
+        summary: str,
+    ) -> None:
+        top = 8
+        bottom = top + self._header_height
+        draw.rounded_rectangle((8, top, width - 8, bottom), radius=6, outline=ACCENT, fill=SURFACE_PANEL)
+        draw_status_dot(draw, 14, top + 6, self.scroll_offset == 0, color=ACCENT)
+        draw.rectangle((28, top + 7, 34, top + 13), outline=DIM, fill=None)
+        if self.scroll_offset == 0:
+            draw.line((40, top + 13, 44, top + 7), fill=ACCENT, width=1)
+            draw.line((44, top + 7, 48, top + 13), fill=ACCENT, width=1)
+        else:
+            draw.line((40, top + 8, 44, top + 12), fill=DIM, width=1)
+            draw.line((44, top + 12, 48, top + 8), fill=DIM, width=1)
         summary_width = len(summary) * cell_width(self.context.app.font)
-        count_x = max(96, width - 16 - summary_width)
-        draw_label(draw, 14, 14, self._truncate(pane_name, 15), self.context.app.font, FG)
-        draw_label(draw, count_x, 14, summary, self.context.app.font, ACCENT)
-        second_line = pane_path if self.scroll_offset == 0 else f"{pane_path} [{scroll_label}]"
-        draw_label(draw, 14, 30, self._truncate(second_line, 24), self.context.app.font, DIM)
+        status_width = 12 if self.scroll_offset == 0 else len(str(self.scroll_offset)) * cell_width(self.context.app.font) + 6
+        status_x = width - 16 - status_width
+        count_x = status_x - 6 - summary_width
+        title_limit = max(8, (count_x - 54) // max(1, cell_width(self.context.app.font)))
+        draw_label(draw, 54, top + 5, self._truncate(pane_name, title_limit), self.context.app.font, FG)
+        draw_label(draw, count_x, top + 5, summary, self.context.app.font, ACCENT)
+        if self.scroll_offset == 0:
+            draw_status_dot(draw, status_x, top + 6, True, color=ACCENT)
+        else:
+            draw_label(draw, status_x, top + 5, str(self.scroll_offset), self.context.app.font, DIM)
 
     def _draw_minimal_frame(self, draw: ImageDraw.ImageDraw, layout: TerminalLayout) -> None:
         draw.rounded_rectangle(
             (layout.body_left, layout.body_top, layout.body_right, layout.body_bottom),
             radius=4,
-            outline="#1A2420",
-            fill="#060806",
+            outline=SURFACE_INSET,
+            fill=SURFACE_ALT,
         )
 
     def _scroll_lines(self, delta: int) -> None:
@@ -176,9 +215,11 @@ class TerminalScreen(Screen):
         return max(self.context.app.config.terminal.scroll_step * 2, self._last_visible_rows - 1)
 
     def _layout_for_snapshot(self, snapshot) -> TerminalLayout:
+        return self._layout_for_state(self._is_minimal_snapshot(snapshot))
+
+    def _layout_for_state(self, minimal: bool) -> TerminalLayout:
         width = self.context.app.config.display.width
         height = self.context.app.config.display.height
-        minimal = self._is_minimal_snapshot(snapshot)
         if minimal:
             origin = (4, 8)
             body_left = 2
@@ -188,7 +229,7 @@ class TerminalScreen(Screen):
         else:
             origin = self._origin
             body_left = 8
-            body_top = self._origin[1] - 8
+            body_top = self._origin[1] - 6
             body_right = width - 8
             body_bottom = height - BUTTON_BAR_HEIGHT - 4
         visible_rows = max(1, (body_bottom - origin[1]) // self._line_height)
@@ -210,7 +251,28 @@ class TerminalScreen(Screen):
         pane_title = snapshot.pane_title.strip().lower()
         if pane_command in commands:
             return True
-        return any(pane_title == command or pane_title.startswith(f"{command} ") for command in commands)
+        if any(pane_title == command or pane_title.startswith(f"{command} ") for command in commands):
+            return True
+        if pane_command != "node":
+            return False
+        return self._has_codex_tui_markers(snapshot.lines)
+
+    @staticmethod
+    def _has_codex_tui_markers(lines: list[str]) -> bool:
+        markers = 0
+        for raw_line in lines[-12:]:
+            line = strip_ansi(raw_line).strip()
+            if not line:
+                continue
+            if line.startswith("› "):
+                markers += 1
+            elif line.startswith("─ Worked for "):
+                markers += 1
+            elif "gpt-" in line and any(level in line for level in (" low", " medium", " high", " xhigh")):
+                markers += 1
+            elif "By continuing, you agree" in line:
+                markers += 1
+        return markers >= 2
 
     def _draw_cursor(self, draw: ImageDraw.ImageDraw, layout: TerminalLayout, snapshot) -> None:
         if not snapshot.cursor_visible or snapshot.pane_in_mode or self.scroll_offset != 0:
@@ -248,3 +310,13 @@ class TerminalScreen(Screen):
         if len(parts) <= max_parts:
             return str(path)
         return f"~/{'/'.join(parts[-max_parts:])}"
+
+    def debug_state(self) -> dict[str, object]:
+        snapshot = self.context.app.tmux.capture(self.scroll_offset, height_rows=1)
+        return {
+            "scroll_offset": self.scroll_offset,
+            "last_visible_rows": self._last_visible_rows,
+            "line_height": self._line_height,
+            "codex_session_id": None,
+            "codex_source_path": None,
+        }

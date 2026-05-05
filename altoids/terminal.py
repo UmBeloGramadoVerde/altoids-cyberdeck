@@ -3,6 +3,7 @@ from __future__ import annotations
 import shlex
 import shutil
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -23,6 +24,13 @@ class TerminalSnapshot:
     pane_in_mode: bool
 
 
+@dataclass(slots=True)
+class TmuxWindow:
+    index: int
+    name: str
+    active: bool
+
+
 class TmuxManager:
     def __init__(
         self,
@@ -38,18 +46,36 @@ class TmuxManager:
         self.pane_history = pane_history
         self.shell_rc_path = shell_rc_path
         self._last_size: tuple[int, int] | None = None
+        self._last_resize_window: str | None = None
+        self._last_ensure_at = 0.0
+        self._session_configured = False
+        self._last_snapshot: TerminalSnapshot | None = None
+        self._control_process: subprocess.Popen[str] | None = None
+        self._tmux_path = shutil.which("tmux")
+        self._command_timeout = 0.5
 
     @property
     def available(self) -> bool:
-        return shutil.which("tmux") is not None
+        return self._tmux_path is not None
 
     def _run(self, *args: str, check: bool = False) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ["tmux", *args],
-            check=check,
-            text=True,
-            capture_output=True,
-        )
+        if self._tmux_path is None:
+            return subprocess.CompletedProcess(["tmux", *args], 127, "", "tmux not found")
+        try:
+            return subprocess.run(
+                [self._tmux_path, *args],
+                check=check,
+                text=True,
+                capture_output=True,
+                timeout=self._command_timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            return subprocess.CompletedProcess(
+                [self._tmux_path, *args],
+                124,
+                exc.stdout if isinstance(exc.stdout, str) else "",
+                exc.stderr if isinstance(exc.stderr, str) else "tmux command timed out",
+            )
 
     def _target(self) -> str:
         return self.session_name
@@ -57,12 +83,27 @@ class TmuxManager:
     def _start_directory(self) -> str:
         return str(Path.home())
 
+    def _current_directory(self) -> str:
+        if not self.available:
+            return self._start_directory()
+        proc = self._run("display-message", "-p", "-t", self._target(), "#{pane_current_path}")
+        path = proc.stdout.strip()
+        if path:
+            return path
+        return self._start_directory()
+
     def ensure_session(self) -> None:
         if not self.available:
             return
+        now = time.monotonic()
+        if self._session_configured and now - self._last_ensure_at < 2.0:
+            return
         has = self._run("has-session", "-t", self.session_name)
         if has.returncode == 0:
-            self._configure_session_shell()
+            if not self._session_configured:
+                self._configure_session_shell()
+                self._session_configured = True
+            self._last_ensure_at = now
             return
         args = [
             "new-session",
@@ -81,8 +122,22 @@ class TmuxManager:
             args.append(shell_command)
         self._run(*args)
         self._configure_session_shell()
+        self._session_configured = True
+        self._last_ensure_at = now
 
-    def capture(self, scroll_offset: int = 0, height_rows: int | None = None) -> TerminalSnapshot:
+    def capture(self, scroll_offset: int = 0, height_rows: int | None = None, fast: bool = False) -> TerminalSnapshot:
+        return self._capture_target(self._target(), scroll_offset=scroll_offset, height_rows=height_rows, fast=fast)
+
+    def capture_window(self, index: int, scroll_offset: int = 0, height_rows: int | None = None) -> TerminalSnapshot:
+        return self._capture_target(f"{self.session_name}:{index}", scroll_offset=scroll_offset, height_rows=height_rows)
+
+    def _capture_target(
+        self,
+        target: str,
+        scroll_offset: int = 0,
+        height_rows: int | None = None,
+        fast: bool = False,
+    ) -> TerminalSnapshot:
         if not self.available:
             return TerminalSnapshot(
                 lines=[
@@ -102,20 +157,38 @@ class TmuxManager:
                 pane_in_mode=False,
             )
         self.ensure_session()
-        proc = self._run("capture-pane", "-p", "-e", "-J", "-S", f"-{self.pane_history}", "-t", self._target())
-        all_lines = proc.stdout.splitlines()
-        end = max(0, len(all_lines) - scroll_offset)
         row_count = height_rows or self.height_chars
-        start = max(0, end - row_count)
-        lines = all_lines[start:end]
-        windows = self.list_windows()
-        active_index = next((index for index, window in enumerate(windows) if window.startswith("*")), -1)
-        active = windows[active_index] if active_index >= 0 else (windows[0] if windows else "-")
-        pane_title, pane_path, pane_command, cursor_x, cursor_y, cursor_visible, pane_in_mode = self._pane_metadata()
-        return TerminalSnapshot(
+        proc = self._run(*self._capture_pane_args(target, scroll_offset, row_count))
+        if proc.returncode != 0 and self._last_snapshot is not None:
+            return self._last_snapshot
+        all_lines = proc.stdout.splitlines()
+        lines = all_lines[-row_count:]
+        if fast and self._last_snapshot is not None:
+            previous = self._last_snapshot
+            snapshot = TerminalSnapshot(
+                lines=lines,
+                window_count=previous.window_count,
+                active_window_position=previous.active_window_position,
+                active_window=previous.active_window,
+                pane_title=previous.pane_title,
+                pane_path=previous.pane_path,
+                pane_command=previous.pane_command,
+                cursor_x=previous.cursor_x,
+                cursor_y=previous.cursor_y,
+                cursor_visible=previous.cursor_visible,
+                pane_in_mode=previous.pane_in_mode,
+            )
+            self._last_snapshot = snapshot
+            return snapshot
+        windows = self.list_window_details()
+        active_window = next((window for window in windows if window.active), None)
+        active = f"{active_window.index}:{active_window.name}" if active_window is not None else (f"{windows[0].index}:{windows[0].name}" if windows else "-")
+        active_position = next((index for index, window in enumerate(windows, start=1) if window.active), 0)
+        pane_title, pane_path, pane_command, cursor_x, cursor_y, cursor_visible, pane_in_mode = self._pane_metadata(target)
+        snapshot = TerminalSnapshot(
             lines=lines,
             window_count=len(windows),
-            active_window_position=active_index + 1 if active_index >= 0 else 0,
+            active_window_position=active_position,
             active_window=active,
             pane_title=pane_title,
             pane_path=pane_path,
@@ -125,21 +198,49 @@ class TmuxManager:
             cursor_visible=cursor_visible,
             pane_in_mode=pane_in_mode,
         )
+        self._last_snapshot = snapshot
+        return snapshot
 
     def list_windows(self) -> list[str]:
+        return [
+            f"{'*' if window.active else ' '}{window.index}:{window.name}"
+            for window in self.list_window_details()
+        ]
+
+    def list_window_details(self) -> list[TmuxWindow]:
         if not self.available:
             return []
         self.ensure_session()
-        proc = self._run("list-windows", "-F", "#{?window_active,*, }#{window_index}:#{window_name}", "-t", self.session_name)
+        proc = self._run("list-windows", "-F", "#{window_active}\t#{window_index}\t#{window_name}", "-t", self.session_name)
         if proc.returncode != 0:
             return []
-        return [line for line in proc.stdout.splitlines() if line]
+        windows: list[TmuxWindow] = []
+        for line in proc.stdout.splitlines():
+            if not line:
+                continue
+            active, index, name = (line.split("\t", 2) + ["", ""])[:3]
+            windows.append(
+                TmuxWindow(
+                    index=_parse_int(index),
+                    name=name or "-",
+                    active=active == "1",
+                )
+            )
+        return windows
 
     def send_keys(self, keys: Iterable[str]) -> None:
         if not self.available:
             return
         self.ensure_session()
-        self._run("send-keys", "-t", self._target(), *list(keys))
+        key_list = list(keys)
+        if self._control_command(
+            "send-keys -t "
+            + shlex_quote(self._target())
+            + " "
+            + " ".join(shlex_quote(key) for key in key_list)
+        ):
+            return
+        self._run("send-keys", "-t", self._target(), *key_list)
 
     def send_enter(self) -> None:
         self.send_keys(["Enter"])
@@ -149,50 +250,63 @@ class TmuxManager:
             return
         self.ensure_session()
         self._run("next-window", "-t", self.session_name)
+        self._invalidate_resize_cache()
 
     def select_previous_window(self) -> None:
         if not self.available:
             return
         self.ensure_session()
         self._run("previous-window", "-t", self.session_name)
+        self._invalidate_resize_cache()
 
     def select_window(self, index: int) -> None:
         if not self.available or index < 1:
             return
         self.ensure_session()
         self._run("select-window", "-t", f"{self.session_name}:{index}")
+        self._invalidate_resize_cache()
 
     def create_window(self, name: str | None = None) -> None:
         if not self.available:
             return
         self.ensure_session()
-        args = ["new-window", "-t", self.session_name, "-c", self._start_directory()]
+        args = ["new-window", "-t", self.session_name, "-c", self._current_directory()]
         if name:
             args.extend(["-n", name])
         shell_command = self._shell_command()
         if shell_command:
             args.append(shell_command)
         self._run(*args)
+        self._invalidate_resize_cache()
 
     def close_active_window(self) -> None:
         if not self.available:
             return
         self.ensure_session()
         self._run("kill-window", "-t", self._target())
+        self._invalidate_resize_cache()
         self.ensure_session()
 
     def send_text(self, text: str) -> None:
         if not text:
             return
-        self.send_keys([text])
+        if not self.available:
+            return
+        self.ensure_session()
+        if self._control_command(f"send-keys -t {shlex_quote(self._target())} -l {shlex_quote(text)}"):
+            return
+        self._run("send-keys", "-t", self._target(), text)
 
     def resize(self, width_chars: int, height_chars: int) -> None:
         if not self.available:
             return
         target_size = (max(1, width_chars), max(1, height_chars))
+        self.ensure_session()
         if self._last_size == target_size:
             return
-        self.ensure_session()
+        active_window = self._active_window_id()
+        if self._last_size == target_size and self._last_resize_window == active_window:
+            return
         self._run(
             "resize-window",
             "-t",
@@ -203,13 +317,37 @@ class TmuxManager:
             str(target_size[1]),
         )
         self._last_size = target_size
+        self._last_resize_window = active_window
 
-    def _pane_metadata(self) -> tuple[str, str, str, int, int, bool, bool]:
+    def debug_windows(self, max_lines: int = 80) -> list[dict[str, object]]:
+        windows = self.list_window_details()
+        captures: list[dict[str, object]] = []
+        for window in windows:
+            snapshot = self.capture_window(window.index, height_rows=max_lines)
+            captures.append(
+                {
+                    "index": window.index,
+                    "name": window.name,
+                    "active": window.active,
+                    "pane_title": snapshot.pane_title,
+                    "pane_path": snapshot.pane_path,
+                    "pane_command": snapshot.pane_command,
+                    "cursor_x": snapshot.cursor_x,
+                    "cursor_y": snapshot.cursor_y,
+                    "cursor_visible": snapshot.cursor_visible,
+                    "pane_in_mode": snapshot.pane_in_mode,
+                    "line_count": len(snapshot.lines),
+                    "lines": snapshot.lines[-max_lines:],
+                }
+            )
+        return captures
+
+    def _pane_metadata(self, target: str) -> tuple[str, str, str, int, int, bool, bool]:
         proc = self._run(
             "display-message",
             "-p",
             "-t",
-            self._target(),
+            target,
             "#{pane_title}\t#{pane_current_path}\t#{pane_current_command}\t#{cursor_x}\t#{cursor_y}\t#{cursor_flag}\t#{pane_in_mode}",
         )
         if proc.returncode != 0:
@@ -243,6 +381,89 @@ class TmuxManager:
         shell_command = self._shell_command()
         if shell_command:
             self._run("set-option", "-t", self.session_name, "default-command", shell_command)
+
+    def _active_window_id(self) -> str:
+        proc = self._run("display-message", "-p", "-t", self._target(), "#{window_id}")
+        window_id = proc.stdout.strip()
+        return window_id or self._target()
+
+    def _invalidate_resize_cache(self) -> None:
+        self._last_size = None
+        self._last_resize_window = None
+
+    def _control_command(self, command: str) -> bool:
+        process = self._ensure_control_process()
+        if process is None or process.stdin is None:
+            return False
+        try:
+            process.stdin.write(command + "\n")
+            process.stdin.flush()
+            return True
+        except (BrokenPipeError, OSError):
+            self._control_process = None
+            return False
+
+    def _ensure_control_process(self) -> subprocess.Popen[str] | None:
+        if self._control_process is not None and self._control_process.poll() is None:
+            return self._control_process
+        if self._tmux_path is None:
+            return None
+        try:
+            self._control_process = subprocess.Popen(
+                [self._tmux_path, "-C", "attach-session", "-t", self.session_name],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                text=True,
+                bufsize=1,
+            )
+        except OSError:
+            self._control_process = None
+        return self._control_process
+
+    def shutdown(self) -> None:
+        process = self._control_process
+        self._control_process = None
+        if process is None:
+            return
+        stdin = process.stdin
+        try:
+            if stdin is not None:
+                stdin.write("detach-client\n")
+                stdin.flush()
+        except (BrokenPipeError, OSError):
+            pass
+        try:
+            if stdin is not None:
+                stdin.close()
+        except (BrokenPipeError, OSError):
+            pass
+        try:
+            process.terminate()
+        except OSError:
+            pass
+        try:
+            process.wait(timeout=0.2)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
+    def _capture_pane_args(self, target: str, scroll_offset: int, row_count: int) -> tuple[str, ...]:
+        row_count = max(1, row_count)
+        scroll_offset = max(0, scroll_offset)
+        if scroll_offset == 0:
+            return ("capture-pane", "-p", "-e", "-S", f"-{row_count}", "-t", target)
+        start = min(self.pane_history, scroll_offset + row_count)
+        return (
+            "capture-pane",
+            "-p",
+            "-e",
+            "-S",
+            f"-{start}",
+            "-E",
+            f"-{scroll_offset}",
+            "-t",
+            target,
+        )
 
 
 def shlex_quote(value: str) -> str:
