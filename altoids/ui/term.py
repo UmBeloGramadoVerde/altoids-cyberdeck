@@ -8,7 +8,7 @@ from PIL import ImageDraw
 
 from ..colors import ACCENT, DIM, FG, SURFACE, SURFACE_ALT, SURFACE_GRID, SURFACE_INSET, SURFACE_PANEL
 from ..input_keyboard import KeyboardEvent
-from ..renderer import cell_width, render_terminal, strip_ansi
+from ..renderer import cell_width, render_terminal, strip_ansi, terminal_cell_advance
 from .base import Screen, ScreenContext
 from .widgets import BUTTON_BAR_HEIGHT
 from .widgets import draw_label
@@ -134,6 +134,10 @@ class TerminalScreen(Screen):
     def on_keyboard_event(self, event: KeyboardEvent) -> bool:
         if event.alt:
             return False
+        if event.key in {"up", "down", "pageup", "pagedown", "home", "end"} and self._active_pane_wants_navigation_keys():
+            self.scroll_offset = 0
+            self.context.app.tmux.send_keys([self._tmux_key_name(event.key)])
+            return True
         # Treat plain navigation keys as viewport controls on the terminal
         # screen so they scroll the captured tmux buffer instead of being
         # forwarded into the shell.
@@ -214,6 +218,17 @@ class TerminalScreen(Screen):
     def _page_scroll_step(self) -> int:
         return max(self.context.app.config.terminal.scroll_step * 2, self._last_visible_rows - 1)
 
+    @staticmethod
+    def _tmux_key_name(key: str) -> str:
+        return {
+            "up": "Up",
+            "down": "Down",
+            "home": "Home",
+            "end": "End",
+            "pageup": "PageUp",
+            "pagedown": "PageDown",
+        }[key]
+
     def _layout_for_snapshot(self, snapshot) -> TerminalLayout:
         return self._layout_for_state(self._is_minimal_snapshot(snapshot))
 
@@ -233,7 +248,7 @@ class TerminalScreen(Screen):
             body_right = width - 8
             body_bottom = height - BUTTON_BAR_HEIGHT - 4
         visible_rows = max(1, (body_bottom - origin[1]) // self._line_height)
-        visible_cols = max(1, (body_right - origin[0] - 2) // cell_width(self.context.app.terminal_font))
+        visible_cols = max(1, int((body_right - origin[0]) // terminal_cell_advance(self.context.app.terminal_font)))
         return TerminalLayout(
             origin=origin,
             body_left=body_left,
@@ -256,6 +271,26 @@ class TerminalScreen(Screen):
         if pane_command != "node":
             return False
         return self._has_codex_tui_markers(snapshot.lines)
+
+    def _active_pane_wants_navigation_keys(self) -> bool:
+        snapshot = self.context.app.tmux.capture(
+            0,
+            height_rows=max(1, self._last_visible_rows),
+            fast=True,
+        )
+        pane_command = Path(snapshot.pane_command).name.lower()
+        pane_title = snapshot.pane_title.strip().lower()
+        if pane_command == "cdx" or pane_title.startswith("cdx"):
+            return True
+        return self._has_cdx_markers(snapshot.lines)
+
+    @staticmethod
+    def _has_cdx_markers(lines: list[str]) -> bool:
+        for raw_line in lines:
+            line = strip_ansi(raw_line).strip()
+            if line.startswith("cdx  cx:") or line.startswith("cdx startup"):
+                return True
+        return False
 
     @staticmethod
     def _has_codex_tui_markers(lines: list[str]) -> bool:
@@ -283,10 +318,10 @@ class TerminalScreen(Screen):
             return
         if snapshot.cursor_x < 0 or snapshot.cursor_x >= layout.visible_cols:
             return
-        width = cell_width(self.context.app.terminal_font)
-        x = layout.origin[0] + snapshot.cursor_x * width
+        width = terminal_cell_advance(self.context.app.terminal_font)
+        x = int(round(layout.origin[0] + snapshot.cursor_x * width))
         y = layout.origin[1] + snapshot.cursor_y * self._line_height
-        draw.rectangle((x, y, x + max(1, width - 2), y + self._line_height - 2), outline=ACCENT)
+        draw.rectangle((x, y, x + max(1, int(round(width)) - 2), y + self._line_height - 2), outline=ACCENT)
 
     @staticmethod
     def _window_summary(snapshot) -> str:

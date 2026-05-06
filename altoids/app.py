@@ -28,7 +28,7 @@ from .sleep import SleepManager
 from .terminal import TmuxManager
 from .wifi import WifiManager
 from .webviewer import WebViewer
-from .ui import GameSelectScreen, HomeScreen, MagiRouteScreen, Screen, ScreenContext, SyncDeflectScreen, SystemScreen, TerminalScreen
+from .ui import GameSelectScreen, HomeScreen, MagiRouteScreen, Screen, ScreenContext, SyncDeflectScreen, SystemScreen, TerminalScreen, TinScopeScreen
 from .ui.widgets import draw_label
 from .ui.widgets import draw_button_bar
 
@@ -128,10 +128,11 @@ class AltoidsApp:
         self.bluetooth_status = self.bluetooth_monitor.poll()
         self.sleep_manager = SleepManager(config.sleep.idle_seconds)
         self.accents = AccentManager(self.display, config.audio, config.led)
-        self.screen_order = ["home", "game", "term", "system"]
+        self.screen_order = ["home", "tinscope", "game", "term", "system"]
         context = ScreenContext(app=self)
         self.screens: dict[str, Screen] = {
             "home": HomeScreen(context),
+            "tinscope": TinScopeScreen(context),
             "game": GameSelectScreen(context),
             "sync_deflect": SyncDeflectScreen(context),
             "magi_route": MagiRouteScreen(context),
@@ -144,6 +145,7 @@ class AltoidsApp:
         self.command_mode_deadline = 0.0
         self.help_visible = False
         self.help_page_index = 0
+        self.help_page_index_by_context: dict[str, int] = {}
         self.help_scroll_offsets: dict[int, int] = {}
         self.web_viewer = WebViewer(host=web_host, port=web_port) if web_viewer else None
         self._active_fps = max(config.display.fps_active, 20) if self.web_viewer is not None else config.display.fps_active
@@ -294,6 +296,9 @@ class AltoidsApp:
         if event.key == "g":
             self.set_screen("game")
             return True
+        if event.key == "r":
+            self.set_screen("tinscope")
+            return True
         if event.key == "a":
             self.tmux.select_previous_window()
             return True
@@ -308,12 +313,6 @@ class AltoidsApp:
             return True
         if self.active_screen_name == "system":
             system_screen = self.screens["system"]
-            if event.key == "j":
-                return system_screen.on_button("A", False)
-            if event.key == "k":
-                return system_screen.on_button("B", False)
-            if event.key == "r":
-                return system_screen.on_button("X", False)
             if event.key == "c":
                 return system_screen.on_button("Y", False)
         if event.key == "z":
@@ -423,93 +422,122 @@ class AltoidsApp:
             HelpPage(
                 title="GLOBAL",
                 rows=[
-                    ("F1", "toggle help"),
-                    ("Ctrl+H", "toggle help"),
-                    ("Ctrl+/", "toggle help"),
-                    ("Help: 1-6", "jump to page"),
-                    ("Help: Left/Right", "prev/next page"),
-                    ("Help: Up/Down", "scroll page"),
-                    ("Meta then H", "help"),
-                    ("Meta then Q", "home"),
-                    ("Meta then G", "game"),
-                    ("Meta then W", "terminal"),
-                    ("Meta then E", "system"),
-                    ("Meta then Z/X", "prev/next screen"),
+                    ("toggle help", "F1"),
+                    ("toggle help", "Ctrl+H"),
+                    ("toggle help", "Ctrl+/"),
+                    ("jump to help page", "Help: 1-7"),
+                    ("prev/next help page", "Help: Left/Right"),
+                    ("scroll help page", "Help: Up/Down"),
+                    ("help", "CMD+H"),
+                    ("home", "CMD+Q"),
+                    ("game", "CMD+G"),
+                    ("terminal", "CMD+W"),
+                    ("system", "CMD+E"),
+                    ("tinscope", "CMD+R"),
+                    ("prev/next screen", "CMD+Z/X"),
                 ],
             ),
             HelpPage(
                 title="TMUX",
                 rows=[
-                    ("Meta then 1-0", "jump tmux window"),
-                    ("Meta then A/S", "prev/next window"),
-                    ("Meta then D", "new window"),
-                    ("Meta then F", "close window"),
-                    ("Ctrl+Up/Down", "scroll term"),
-                    ("Ctrl+PgUp/Dn", "page scroll"),
-                    ("Ctrl+Home/End", "top/live"),
-                    ("Text keys", "send text in terminal"),
-                    ("Ctrl+A-Z", "send ctrl chord"),
+                    ("jump tmux window", "CMD+1-0"),
+                    ("prev/next window", "CMD+A/S"),
+                    ("new window", "CMD+D"),
+                    ("close window", "CMD+F"),
+                    ("scroll terminal", "Ctrl+Up/Down"),
+                    ("scrollback", "Up/Down"),
+                    ("top/live", "Ctrl+Home/End"),
+                    ("send text in terminal", "Text keys"),
+                    ("send ctrl chord", "Ctrl+A-Z"),
                 ],
             ),
             HelpPage(
                 title="GAME",
                 rows=[
-                    ("Meta then G", "open picker"),
-                    ("Picker Up/Down", "select game"),
-                    ("Picker 1/2", "quick launch"),
-                    ("Picker Space", "load game"),
-                    ("SYNC Space", "start / deflect"),
-                    ("SYNC W/S", "move field"),
-                    ("MAGI arrows", "move cursor"),
-                    ("MAGI Space", "rotate tile"),
-                    ("R", "restart active game"),
-                    ("Q / Esc", "game menu"),
+                    ("open picker", "CMD+G"),
+                    ("select game", "Picker Up/Down"),
+                    ("quick launch", "Picker 1/2"),
+                    ("load game", "Picker Space"),
+                    ("start / deflect", "SYNC Space"),
+                    ("move field", "SYNC W/S"),
+                    ("move cursor", "MAGI arrows"),
+                    ("rotate tile", "MAGI Space"),
+                    ("restart active game", "R"),
+                    ("game menu", "Q / Esc"),
+                ],
+            ),
+            HelpPage(
+                title="TINSCOPE",
+                rows=[
+                    ("open tinscope", "CMD+R"),
+                    ("edit target", "Text keys"),
+                    ("clear target", "Delete"),
+                    ("scan target", "Enter / X"),
+                    ("change scan profile", "Space / Y"),
+                    ("export report", "Report: Space"),
+                    ("cycle target preset", "Up/Down / A"),
+                    ("prev/next page", "Left/Right"),
+                    ("next page", "Tab / B"),
+                    ("jump pages", "1-4"),
+                    ("home", "Q / Esc"),
                 ],
             ),
             HelpPage(
                 title="SYSTEM",
                 rows=[
-                    ("Long A/B", "prev/next subpage"),
-                    ("Meta then J/K", "wifi prev/next"),
-                    ("Meta then R", "scan wifi"),
-                    ("Meta then C", "connect wifi"),
-                    ("Pass: text", "type password"),
-                    ("Pass: Enter", "join"),
-                    ("Pass: Backspace", "delete"),
-                    ("Pass: Esc", "cancel"),
-                    ("Help: A/B", "prev/next page"),
-                    ("Help: Esc", "close help"),
+                    ("prev/next subpage", "A/B"),
+                    ("wifi setup", "Y / CMD+C"),
+                    ("pick network", "WiFi: A/B"),
+                    ("scan nearby", "WiFi: X / R"),
+                    ("join selected", "WiFi: Y / Enter"),
+                    ("close setup", "WiFi: Esc"),
+                    ("type password", "Pass: text"),
+                    ("join", "Pass: Enter"),
+                    ("delete", "Pass: Backspace"),
+                    ("cancel", "Pass: Esc"),
+                    ("prev/next help page", "Help: A/B"),
+                    ("close help", "Help: Esc"),
                 ],
             ),
             HelpPage(
                 title="CDX",
                 rows=[
-                    ("Enter", "send composer"),
-                    ("Esc", "clear composer; quit if empty"),
-                    ("Left/Right", "move composer cursor"),
-                    ("Home/End", "start/end composer"),
-                    ("Backspace/Delete", "edit composer"),
-                    ("Up/Down", "scroll transcript"),
-                    ("PgUp/PgDn", "page transcript"),
-                    ("Ctrl+L", "refresh recent threads"),
-                    ("Approval: 1", "yes"),
-                    ("Approval: 2", "yes for session"),
-                    ("Approval: 3", "no"),
-                    ("Approval: 4", "no with redirect"),
-                    ("Startup Up/Down", "choose thread"),
-                    ("Startup Enter", "open selection"),
-                    ("Startup Q", "quit picker"),
+                    ("switch feed/composer", "Tab"),
+                    ("pick feed item", "Up/Down"),
+                    ("pick feed item", "Ctrl+P/N"),
+                    ("jump feed", "Ctrl+U/D"),
+                    ("first/last feed item", "Home/End"),
+                    ("open selected item", "Feed: Enter"),
+                    ("composer keeps focus", "Type + Up/Down"),
+                    ("send composer", "Enter"),
+                    ("clear composer; quit if empty", "Esc"),
+                    ("move composer cursor", "Left/Right"),
+                    ("start/end composer", "Home/End"),
+                    ("edit composer", "Backspace/Delete"),
+                    ("reader prev/next msg", "Up/Down"),
+                    ("reader scroll line", "Ctrl+P/N"),
+                    ("reader scroll page", "Ctrl+U/D"),
+                    ("reader start/end", "Home/End"),
+                    ("reader close", "Enter/Esc"),
+                    ("refresh recent threads", "Ctrl+L"),
+                    ("yes", "Approval: 1"),
+                    ("yes for session", "Approval: 2"),
+                    ("no", "Approval: 3"),
+                    ("no with redirect", "Approval: 4"),
+                    ("choose thread", "Startup Up/Down"),
+                    ("open selection", "Startup Enter"),
+                    ("quit picker", "Startup Q"),
                 ],
             ),
             HelpPage(
                 title="ACCENTS",
                 rows=[
-                    ("A / B", "volume - / +"),
-                    ("X", "toggle mute"),
-                    ("Y", "toggle led pulses"),
-                    ("Whisplay only", "features gated"),
-                    ("Sleep", "audio/led off"),
-                    ("Wake", "restore + cue"),
+                    ("volume - / +", "A / B"),
+                    ("toggle mute", "X"),
+                    ("toggle led pulses", "Y"),
+                    ("features gated", "Whisplay only"),
+                    ("audio/led off", "Sleep"),
+                    ("restore + cue", "Wake"),
                 ],
             ),
         ]
@@ -518,16 +546,17 @@ class AltoidsApp:
         self.help_visible = not self.help_visible
         if self.help_visible:
             self.command_mode_deadline = 0.0
+            self.help_page_index = self._help_page_index_for_current_context()
 
     def _handle_help_button(self, event: ButtonEvent) -> bool:
         if event.long_press:
             self.toggle_help()
             return True
         if event.button == "A":
-            self.help_page_index = (self.help_page_index - 1) % len(self.help_pages)
+            self._set_help_page_index((self.help_page_index - 1) % len(self.help_pages))
             return True
         if event.button == "B":
-            self.help_page_index = (self.help_page_index + 1) % len(self.help_pages)
+            self._set_help_page_index((self.help_page_index + 1) % len(self.help_pages))
             return True
         if event.button in {"X", "Y"}:
             self.toggle_help()
@@ -541,10 +570,10 @@ class AltoidsApp:
         if self._select_help_page_by_key(event.key):
             return True
         if event.key == "left":
-            self.help_page_index = (self.help_page_index - 1) % len(self.help_pages)
+            self._set_help_page_index((self.help_page_index - 1) % len(self.help_pages))
             return True
         if event.key in {"right", "tab"} or event.raw_key == "KEY_SPACE":
-            self.help_page_index = (self.help_page_index + 1) % len(self.help_pages)
+            self._set_help_page_index((self.help_page_index + 1) % len(self.help_pages))
             return True
         if event.key == "up":
             self._scroll_help(-1)
@@ -575,8 +604,42 @@ class AltoidsApp:
         page_number = int(key)
         if page_number == 0 or page_number > len(self.help_pages):
             return False
-        self.help_page_index = page_number - 1
+        self._set_help_page_index(page_number - 1)
         return True
+
+    def _set_help_page_index(self, index: int) -> None:
+        self.help_page_index = index
+        self.help_page_index_by_context[self._help_context_key()] = index
+
+    def _help_page_index_for_current_context(self) -> int:
+        context_key = self._help_context_key()
+        if context_key in self.help_page_index_by_context:
+            return self.help_page_index_by_context[context_key]
+        return self._contextual_help_page_index()
+
+    def _help_context_key(self) -> str:
+        if self.active_screen_name == "system":
+            system_screen = self.screens["system"]
+            page_name = getattr(system_screen, "page_name", None)
+            if page_name == "accents":
+                return "system:accents"
+        return self.active_screen_name
+
+    def _contextual_help_page_index(self) -> int:
+        page_title = {
+            "home": "GLOBAL",
+            "term": "TMUX",
+            "game": "GAME",
+            "sync_deflect": "GAME",
+            "magi_route": "GAME",
+            "tinscope": "TINSCOPE",
+            "system": "SYSTEM",
+            "system:accents": "ACCENTS",
+        }.get(self._help_context_key(), "GLOBAL")
+        for index, page in enumerate(self.help_pages):
+            if page.title == page_title:
+                return index
+        return 0
 
     def _scroll_help(self, delta: int) -> None:
         self._set_help_scroll(self._current_help_scroll() + delta)
@@ -625,9 +688,9 @@ class AltoidsApp:
         draw_label(self.draw, right - 112, top + 8, scroll_label, self.font, FG)
         self.draw.line((left + 8, top + 28, right - 8, top + 28), fill=DIM, width=1)
         row_y = top + 36
-        for shortcut, description in page.rows[scroll : scroll + visible_rows]:
-            draw_label(self.draw, left + 10, row_y, shortcut, self.font, FG)
-            draw_label(self.draw, left + 122, row_y, description, self.font, DIM)
+        for action, combo in page.rows[scroll : scroll + visible_rows]:
+            draw_label(self.draw, left + 10, row_y, action, self.font, FG)
+            draw_label(self.draw, left + 188, row_y, combo, self.font, DIM)
             row_y += 20
 
     def render(self) -> None:

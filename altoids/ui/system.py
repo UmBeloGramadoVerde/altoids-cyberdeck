@@ -17,11 +17,12 @@ class SystemScreen(Screen):
         super().__init__(context)
         self.selected_index = 0
         self.networks: list[WifiNetwork] = []
-        self.status_line = "A/B browse  X scan  Y connect"
+        self.status_line = "Y wifi setup"
         self.password_entry = ""
         self.password_target: WifiNetwork | None = None
         self._refresh_elapsed = 0.0
         self.page_index = 0
+        self.wifi_config_active = False
 
     @property
     def entering_password(self) -> bool:
@@ -41,7 +42,8 @@ class SystemScreen(Screen):
             self.selected_index = min(self.selected_index, len(self.networks) - 1)
         else:
             self.selected_index = 0
-        self.status_line = self.context.app.wifi.last_message
+        if self.wifi_config_active:
+            self.status_line = self.context.app.wifi.last_message
         return True
 
     def render(self, draw: ImageDraw.ImageDraw, buffer) -> None:
@@ -99,6 +101,8 @@ class SystemScreen(Screen):
             masked = "*" * min(len(self.password_entry), 12)
             password_line = self._trim(f"PASS {self.password_target.ssid} {masked}", 30)
             draw_label(draw, 22, 206, password_line, app.font, WARN)
+        elif self.wifi_config_active:
+            draw_label(draw, 22, 206, roster[2], app.font, ACCENT)
         else:
             draw_label(draw, 22, 206, self._trim(self.status_line.upper(), 30), app.font, ACCENT if wifi_status.connected else DIM)
 
@@ -189,11 +193,11 @@ class SystemScreen(Screen):
         draw_scanlines(draw, state_bounds, step=6, color=SURFACE_GRID)
 
     def on_button(self, button: str, long_press: bool) -> bool:
-        if button == "A" and long_press:
+        if button == "A" and long_press and not self.entering_password and not self.wifi_config_active:
             self.page_index = (self.page_index - 1) % len(self._PAGES)
             self.status_line = self.page_name
             return True
-        if button == "B" and long_press:
+        if button == "B" and long_press and not self.entering_password and not self.wifi_config_active:
             self.page_index = (self.page_index + 1) % len(self._PAGES)
             self.status_line = self.page_name
             return True
@@ -215,35 +219,72 @@ class SystemScreen(Screen):
                 self._submit_password_entry()
                 return True
             return False
+        if self.wifi_config_active:
+            if button == "X" and long_press:
+                self._leave_wifi_config()
+                return True
+            if button == "Y" and long_press:
+                self.context.app.set_screen("term")
+                return True
+            if button == "X":
+                self._enter_wifi_config(force_scan=True)
+                return True
+            if button == "A":
+                self._select_wifi_network(-1)
+                return True
+            if button == "B":
+                self._select_wifi_network(1)
+                return True
+            if button == "Y":
+                if self.networks:
+                    self._connect_selected_network()
+                else:
+                    self.status_line = "no wifi networks"
+                return True
+            return False
         if button == "X" and long_press:
             self.context.app.set_screen("home")
             return True
         if button == "X":
-            self.networks = self.context.app.wifi.scan(force=True)
-            self.status_line = self.context.app.wifi.last_message
-            self.selected_index = 0
-            self._refresh_elapsed = 0.0
+            self.context.app.set_screen("home")
             return True
         if button == "A":
-            if self.networks:
-                self.selected_index = (self.selected_index - 1) % len(self.networks)
-                self.status_line = f"selected {self.networks[self.selected_index].ssid}"
+            self.page_index = (self.page_index - 1) % len(self._PAGES)
+            self.status_line = self.page_name
             return True
         if button == "B":
-            if self.networks:
-                self.selected_index = (self.selected_index + 1) % len(self.networks)
-                self.status_line = f"selected {self.networks[self.selected_index].ssid}"
+            self.page_index = (self.page_index + 1) % len(self._PAGES)
+            self.status_line = self.page_name
             return True
         if button == "Y":
             if long_press:
                 self.context.app.set_screen("term")
                 return True
-            if self.networks:
-                self._connect_selected_network()
+            self._enter_wifi_config(force_scan=True)
             return True
         return False
 
     def on_keyboard_event(self, event: KeyboardEvent) -> bool:
+        if self.wifi_config_active and not self.entering_password:
+            if event.key == "escape":
+                self._leave_wifi_config()
+                return True
+            if event.key in {"up", "left", "pageup", "k"}:
+                self._select_wifi_network(-1)
+                return True
+            if event.key in {"down", "right", "pagedown", "j"}:
+                self._select_wifi_network(1)
+                return True
+            if event.key == "r":
+                self._enter_wifi_config(force_scan=True)
+                return True
+            if event.key == "enter":
+                if self.networks:
+                    self._connect_selected_network()
+                else:
+                    self.status_line = "no wifi networks"
+                return True
+            return False
         if not self.entering_password and event.key in {"1"}:
             self.page_index = 0
             self.status_line = self.page_name
@@ -284,9 +325,34 @@ class SystemScreen(Screen):
     def get_button_hints(self) -> list[str]:
         if self.entering_password:
             return ["A del", "B spc", "X cancel", "Y join"]
+        if self.wifi_config_active:
+            return ["A prev", "B next", "X scan", "Y join"]
         if self.page_name == "accents":
             return ["A vol-", "B vol+", "X mute", "Y led"]
-        return ["A wifi-", "B wifi+", "X scan", "Y conn"]
+        return ["A page-", "B page+", "X home", "Y wifi"]
+
+    def _enter_wifi_config(self, *, force_scan: bool = False) -> None:
+        self.wifi_config_active = True
+        self.networks = self.context.app.wifi.scan(force=force_scan)
+        if self.networks:
+            self.selected_index = min(self.selected_index, len(self.networks) - 1)
+        else:
+            self.selected_index = 0
+        self.status_line = self.context.app.wifi.last_message
+        self._refresh_elapsed = 0.0
+
+    def _leave_wifi_config(self) -> None:
+        self.wifi_config_active = False
+        self.password_target = None
+        self.password_entry = ""
+        self.status_line = "wifi setup closed"
+
+    def _select_wifi_network(self, delta: int) -> None:
+        if not self.networks:
+            self.status_line = "no wifi networks"
+            return
+        self.selected_index = (self.selected_index + delta) % len(self.networks)
+        self.status_line = f"selected {self.networks[self.selected_index].ssid}"
 
     def _connect_selected_network(self) -> None:
         network = self.networks[self.selected_index]
@@ -319,6 +385,7 @@ class SystemScreen(Screen):
         if connected:
             self.password_target = None
             self.password_entry = ""
+            self.wifi_config_active = False
 
     def _cancel_password_entry(self) -> None:
         self.password_target = None
@@ -434,21 +501,24 @@ class SystemScreen(Screen):
         draw_segmented_bar(draw, x + 34, y + 1, 98, pct, segments=10, color=color)
         draw_label(draw, x + 138, y, value, self.context.app.font, color if color != ACCENT else FG)
 
-    def _network_roster(self, selected: WifiNetwork | None) -> tuple[str, str]:
+    def _network_roster(self, selected: WifiNetwork | None) -> tuple[str, str, str]:
         wifi_status = self.context.app.wifi.status(allow_refresh=not self.context.app.input_render_pending)
         line_one = self._trim(
             f"NET {(wifi_status.ssid or wifi_status.state).upper()} {wifi_status.signal:>3}%",
             30,
         )
+        if not self.wifi_config_active:
+            return line_one, "WIFI SETUP: PRESS Y", "Y WIFI SETUP"
         if selected is None:
-            return line_one, "PICK NONE"
+            return line_one, "PICK NONE", self._trim(self.status_line.upper(), 30)
         marker = "*" if selected.active else ">"
         security = "OPEN" if selected.open else "LOCK"
         line_two = self._trim(
             f"PICK {marker} {selected.ssid.upper()} {selected.signal:>3}% {security}",
             30,
         )
-        return line_one, line_two
+        detail = self._trim(f"{self.selected_index + 1}/{len(self.networks)} {self.status_line.upper()}", 30)
+        return line_one, line_two, detail
 
 
 def uptime_field(value: object) -> str:

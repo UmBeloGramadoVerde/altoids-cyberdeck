@@ -8,6 +8,7 @@ This repository currently contains the first working scaffold of that system:
 - a home dashboard with an animated mascot and rotating status messages
 - a tmux-backed terminal screen
 - a system screen with device stats and Wi‑Fi controls
+- TinScope, a keyboard-reachable research surface for host exposure checks
 - a sleep manager for backlight timeout
 - deployment/config scaffolding for `systemd`, `tmux-resurrect`, and `tmux-continuum`
 
@@ -98,7 +99,7 @@ Current controls:
 - `X`: open terminal
 - `Y`: open system screen
 
-Global keyboard help is available from any screen with `F1`, `Ctrl+H`, `Ctrl+/`, or `Meta`, `H`. The overlay is paged; use `1`..`4` to jump directly to a help page, `Left` / `Right`, `Up` / `Down`, `Tab`, or `Space` to switch pages, and `Esc`, `Enter`, `F1`, `Ctrl+H`, `Ctrl+/`, or `H` to close it.
+Global keyboard help is available from any screen with `F1`, `Ctrl+H`, `Ctrl+/`, or `CMD+H`. The overlay opens to the current screen's help page unless that screen already has a remembered help page. Use `1`..`6` to jump directly to a help page, `Left` / `Right`, `Up` / `Down`, `Tab`, or `Space` to switch pages, and `Esc`, `Enter`, `F1`, `Ctrl+H`, `Ctrl+/`, or `H` to close it.
 
 ### Terminal
 
@@ -129,16 +130,16 @@ Keyboard behavior on the terminal screen:
 
 - plain text is typed into tmux
 - `Ctrl+Up` / `Ctrl+Down`: scroll the captured terminal view
-- `Ctrl+PageUp` / `Ctrl+PageDown`: page the terminal scrollback
+- `Up` / `Down`: scroll the captured terminal view
 - `Ctrl+Home` / `Ctrl+End`: jump to the oldest captured lines or back to live output
 - `Ctrl` + letter chords such as `Ctrl+C` are forwarded into tmux
-- `F1`, `Ctrl+H`, `Ctrl+/`, or `Meta`, `H`: open keyboard shortcut help
-- `Meta`, `A` / `S`: previous / next tmux window
-- `Meta`, `1`..`9`: jump to tmux windows 1 through 9
-- `Meta`, `0`: jump to tmux window 10
-- `Meta`, `D` / `F`: create / close tmux window
-- `Meta`, `Q` / `W` / `E`: jump to home / terminal / system
-- `Meta`, `Z` / `X`: previous / next app screen
+- `F1`, `Ctrl+H`, `Ctrl+/`, or `CMD+H`: open keyboard shortcut help
+- `CMD+A` / `CMD+S`: previous / next tmux window
+- `CMD+1`..`CMD+9`: jump to tmux windows 1 through 9
+- `CMD+0`: jump to tmux window 10
+- `CMD+D` / `CMD+F`: create / close tmux window
+- `CMD+Q` / `CMD+W` / `CMD+E`: jump to home / terminal / system
+- `CMD+Z` / `CMD+X`: previous / next app screen
 
 Note: the plan called for `pyte`-based ANSI rendering, but the current code strips ANSI sequences and renders plain text via [altoids/renderer.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/renderer.py:1). That is a deliberate simplification for the first pass.
 
@@ -160,18 +161,29 @@ Shows:
 
 Current controls:
 
-- `A`: previous Wi‑Fi network
-- `B`: next Wi‑Fi network
-- `X`: scan Wi‑Fi networks
-- `long X`: return home
-- `Y`: connect to selected Wi‑Fi network
+- `A`: previous system subpage
+- `B`: next system subpage
+- `X`: return home
+- `Y`: enter Wi‑Fi setup
 - `long Y`: open terminal
 
-If the selected Wi‑Fi network is secured and no working password is cached, the system screen now prompts for a password from the keyboard. `Enter` submits, `Backspace` edits, and `Esc` cancels.
+Wi‑Fi setup scans nearby networks and shows the selected network from that scan. Inside setup, `A` / `B` picks a network, `X` rescans, and `Y` joins the selected network. Keyboard users can press `CMD+C` from the system screen to enter setup, then use `Up` / `Down`, `R`, `Enter`, and `Esc`.
 
-On the system screen, `Meta`, `J` / `K` mirrors the `A` / `B` Wi‑Fi selection buttons, and `Meta`, `R` / `C` mirrors scan / connect.
+If the selected Wi‑Fi network is secured and no working password is cached, the system screen prompts for a password from the keyboard. `Enter` submits, `Backspace` edits, and `Esc` cancels.
+
+On the system screen, `CMD+C` enters Wi‑Fi setup.
 
 Wi‑Fi management is implemented in [altoids/wifi.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/wifi.py:1) and currently depends on `nmcli`, which means the Pi should use NetworkManager.
+
+### TinScope
+
+Implemented in [altoids/ui/tinscope.py](/home/kayna/altoids-cyberdeck/altoids/ui/tinscope.py:1).
+
+TinScope is a compact research tool for checking a host's visible surface from the deck UI. It supports target entry, scan profiles, TCP port reachability checks, HTTP/HTTPS header checks, TLS certificate metadata, and Markdown report export.
+
+The full flow is keyboard reachable: type a target, use `Space` to change profiles, `Enter` to scan, arrows or `Tab` to move around, and `Space` on the Report page to export.
+
+See [docs/tinscope.md](/home/kayna/altoids-cyberdeck/docs/tinscope.md:1) for controls, scan profiles, and report behavior.
 
 ## Configuration
 

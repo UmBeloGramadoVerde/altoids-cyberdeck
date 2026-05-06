@@ -105,10 +105,7 @@ The keyboard-specific command model is:
 
 System-screen-local commands:
 
-- `meta`, `j` -> previous Wi‑Fi network
-- `meta`, `k` -> next Wi‑Fi network
-- `meta`, `r` -> Wi‑Fi rescan
-- `meta`, `c` -> connect selected Wi‑Fi network
+- `meta`, `c` -> enter Wi‑Fi setup from the system screen
 
 ## Explicit Non-Goals
 

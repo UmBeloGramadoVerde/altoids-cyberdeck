@@ -1,9 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ALTOIDS_ROOT="${ALTOIDS_ROOT:-/opt/altoids/current}"
+ALTOIDS_SOURCE_ROOT="${ALTOIDS_SOURCE_ROOT:-/home/kayna/altoids-cyberdeck}"
+if [[ -z "${ALTOIDS_ROOT:-}" && -f "$ALTOIDS_SOURCE_ROOT/altoids/cdx.py" ]]; then
+  ALTOIDS_ROOT="$ALTOIDS_SOURCE_ROOT"
+else
+  ALTOIDS_ROOT="${ALTOIDS_ROOT:-/opt/altoids/current}"
+fi
 ALTOIDS_VENV="${ALTOIDS_VENV:-/opt/altoids/.venv/bin/python}"
 
 export PYTHONPATH="${ALTOIDS_ROOT}${PYTHONPATH:+:$PYTHONPATH}"
+
+CODEX_HOME_DIR="${CODEX_HOME:-${HOME}/.codex}"
+if ! mkdir -p "$CODEX_HOME_DIR" 2>/dev/null || ! touch "$CODEX_HOME_DIR/.cdx-write-test" 2>/dev/null; then
+  ALTOIDS_CDX_HOME="${ALTOIDS_CDX_HOME:-${ALTOIDS_SOURCE_ROOT}/.runtime/cdx-home}"
+  ALTOIDS_CDX_STATE="${ALTOIDS_CDX_STATE:-${ALTOIDS_SOURCE_ROOT}/.runtime/cdx-state}"
+  mkdir -p "$ALTOIDS_CDX_HOME" "$ALTOIDS_CDX_STATE"
+  exec "$ALTOIDS_VENV" -m altoids.cdx \
+    --home-override "$ALTOIDS_CDX_HOME" \
+    --xdg-state-home "$ALTOIDS_CDX_STATE" \
+    "$@"
+fi
+rm -f "$CODEX_HOME_DIR/.cdx-write-test"
 
 exec "$ALTOIDS_VENV" -m altoids.cdx "$@"

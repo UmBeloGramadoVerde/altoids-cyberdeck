@@ -74,6 +74,8 @@ class CdxState:
     startup_threads: list[RecentThread] = field(default_factory=list)
     thread_id: str = ""
     active_turn_id: str = ""
+    active_item_id: str = ""
+    active_item_label: str = ""
     pending_approvals: list[ApprovalRequest] = field(default_factory=list)
     feed: list[FeedEntry] = field(default_factory=list)
     item_index: dict[str, int] = field(default_factory=dict)
@@ -384,11 +386,13 @@ class CdxApp:
     def _activate_thread(self, thread: dict[str, Any], clear_feed: bool) -> None:
         self.state.thread_id = thread["id"]
         self.state.active_turn_id = ""
+        self.state.active_item_id = ""
+        self.state.active_item_label = ""
         self.state.pending_approvals.clear()
         self.state.reader_open = False
         self.state.reader_scroll = 0
         self.state.feed_top_entry = 0
-        self.state.session_focus = "feed"
+        self.state.session_focus = "composer"
         if clear_feed:
             self.state.feed.clear()
             self.state.item_index.clear()
@@ -435,12 +439,17 @@ class CdxApp:
             if params.get("threadId") == self.state.thread_id:
                 turn = params.get("turn", {})
                 self.state.active_turn_id = turn.get("id", "")
+                self.state.active_item_id = ""
+                self.state.active_item_label = ""
+                self._clear_idle_notice()
             return
         if method == "turn/completed":
             if params.get("threadId") == self.state.thread_id:
                 turn = params.get("turn", {})
                 if turn.get("id") == self.state.active_turn_id:
                     self.state.active_turn_id = ""
+                    self.state.active_item_id = ""
+                    self.state.active_item_label = ""
                 status = turn.get("status", "completed")
                 message = "Turn completed."
                 if status == "failed":
@@ -452,28 +461,45 @@ class CdxApp:
             return
         if method == "item/started":
             if params.get("threadId") == self.state.thread_id:
-                entry = self._entry_from_item(params.get("item", {}))
+                item = params.get("item", {})
+                entry = self._entry_from_item(item)
                 if entry is not None:
                     self._upsert_feed_entry(entry)
+                    self.state.active_item_id = entry.id
+                    self.state.active_item_label = self._active_item_label(entry)
+                    self._clear_idle_notice()
             return
         if method == "item/completed":
             if params.get("threadId") == self.state.thread_id:
-                entry = self._entry_from_item(params.get("item", {}))
+                item = params.get("item", {})
+                entry = self._entry_from_item(item)
                 if entry is not None:
                     self._upsert_feed_entry(entry)
+                    if entry.id == self.state.active_item_id:
+                        self.state.active_item_id = ""
+                        self.state.active_item_label = ""
             return
         if method == "item/agentMessage/delta":
             if params.get("threadId") == self.state.thread_id:
                 item_id = params.get("itemId", "")
                 delta = params.get("delta", "")
+                self.state.active_item_id = item_id
+                self.state.active_item_label = "writing response"
+                self._clear_idle_notice()
                 self._append_agent_delta(item_id, delta)
             return
         if method == "item/commandExecution/outputDelta":
             if params.get("threadId") == self.state.thread_id:
+                self.state.active_item_id = params.get("itemId", "")
+                self.state.active_item_label = "running command"
+                self._clear_idle_notice()
                 self._append_output_delta(params.get("itemId", ""), params.get("delta", ""))
             return
         if method == "item/fileChange/outputDelta":
             if params.get("threadId") == self.state.thread_id:
+                self.state.active_item_id = params.get("itemId", "")
+                self.state.active_item_label = "editing files"
+                self._clear_idle_notice()
                 self._append_output_delta(params.get("itemId", ""), params.get("delta", ""))
             return
         if method == "serverRequest/resolved":
@@ -562,16 +588,22 @@ class CdxApp:
         ask = " ask" if pending is not None else ""
         focus = "reader" if self.state.reader_open else self.state.session_focus
         header = f"cdx  cx:{self.state.thread_id[-8:] or 'new'}  {self._short_path(str(self.cwd))}{ask}  {focus}"
-        self._draw_line(stdscr, 0, 0, self._fit(header, width - 1), "accent")
+        pick = self._feed_pick_status()
+        header_width = max(1, width - len(pick) - 3)
+        self._draw_line(stdscr, 0, 0, self._fit(header, header_width), "accent")
+        if pick:
+            self._draw_line(stdscr, 0, max(0, width - len(pick) - 1), pick, "pick_status")
         self._draw_line(stdscr, 1, 0, "=", "dim", fill=True)
         top = 2
         if pending is not None:
             preview = pending.command or pending.reason or pending.grant_root or "approval requested"
             self._draw_line(stdscr, top, 0, self._fit(f"[?] waiting: {preview}", width - 1), "warn")
             top += 1
-        elif self.state.notice:
-            self._draw_line(stdscr, top, 0, self._fit(f"[*] {self.state.notice}", width - 1), "dim")
-            top += 1
+        else:
+            status = self._session_status()
+            if status:
+                self._draw_line(stdscr, top, 0, self._fit(f"[*] {status}", width - 1), "dim")
+                top += 1
         feed_height = max(4, height - top - 2)
         self._render_feed(stdscr, top, width - 1, feed_height)
         composer_text, cursor_x = self._composer_view(width - 1)
@@ -593,10 +625,10 @@ class CdxApp:
 
     def _handle_startup_key(self, key: object) -> bool:
         total = len(self.state.startup_threads) + 1
-        if key == curses.KEY_UP:
+        if key == curses.KEY_UP or self._is_nav_prev(key):
             self.state.startup_index = (self.state.startup_index - 1) % total
             return False
-        if key == curses.KEY_DOWN:
+        if key == curses.KEY_DOWN or self._is_nav_next(key):
             self.state.startup_index = (self.state.startup_index + 1) % total
             return False
         if key in {"\n", "\r"} or key == curses.KEY_ENTER:
@@ -633,21 +665,27 @@ class CdxApp:
         return self._handle_composer_key(key)
 
     def _handle_feed_key(self, key: object) -> bool:
+        if key in {"q", "Q"}:
+            return True
+        if isinstance(key, str) and key.isprintable():
+            self.state.session_focus = "composer"
+            self._insert_composer_text(key)
+            return False
         if key in {"\n", "\r"} or key == curses.KEY_ENTER:
             self._open_reader()
             return False
         if key in {27, "\x1b"}:
             return True
-        if key == curses.KEY_UP:
+        if key == curses.KEY_UP or self._is_nav_prev(key):
             self._move_selection(-1)
             return False
-        if key == curses.KEY_DOWN:
+        if key == curses.KEY_DOWN or self._is_nav_next(key):
             self._move_selection(1)
             return False
-        if key == curses.KEY_PPAGE:
+        if key == curses.KEY_PPAGE or self._is_nav_page_prev(key):
             self._move_selection(-6)
             return False
-        if key == curses.KEY_NPAGE:
+        if key == curses.KEY_NPAGE or self._is_nav_page_next(key):
             self._move_selection(6)
             return False
         if key == curses.KEY_HOME:
@@ -662,13 +700,23 @@ class CdxApp:
             self._load_recent_threads()
             self.state.notice = "Recent threads refreshed."
             return False
-        if key in {"q", "Q"}:
-            return True
         return False
 
     def _handle_composer_key(self, key: object) -> bool:
         if key in {"\n", "\r"} or key == curses.KEY_ENTER:
             self._submit_composer()
+            return False
+        if key == curses.KEY_UP or self._is_nav_prev(key):
+            self._move_selection(-1)
+            return False
+        if key == curses.KEY_DOWN or self._is_nav_next(key):
+            self._move_selection(1)
+            return False
+        if key == curses.KEY_PPAGE or self._is_nav_page_prev(key):
+            self._move_selection(-6)
+            return False
+        if key == curses.KEY_NPAGE or self._is_nav_page_next(key):
+            self._move_selection(6)
             return False
         if key in {27, "\x1b"}:
             if self.state.composer:
@@ -719,19 +767,25 @@ class CdxApp:
             self.state.reader_open = False
             self.state.reader_scroll = 0
             return False
-        lines = self._reader_lines(max(1, self.state.screen_width - 8))
-        viewport = max(1, self.state.screen_height - 8)
+        lines = self._reader_lines(max(1, self.state.screen_width - 4))
+        viewport = max(1, self.state.screen_height - 3)
         max_scroll = max(0, len(lines) - viewport)
         if key == curses.KEY_UP:
-            self.state.reader_scroll = max(0, self.state.reader_scroll - 1)
+            self._move_reader_selection(-1)
             return False
         if key == curses.KEY_DOWN:
+            self._move_reader_selection(1)
+            return False
+        if self._is_nav_prev(key):
+            self.state.reader_scroll = max(0, self.state.reader_scroll - 1)
+            return False
+        if self._is_nav_next(key):
             self.state.reader_scroll = min(max_scroll, self.state.reader_scroll + 1)
             return False
-        if key == curses.KEY_PPAGE:
+        if key == curses.KEY_PPAGE or self._is_nav_page_prev(key):
             self.state.reader_scroll = max(0, self.state.reader_scroll - viewport)
             return False
-        if key == curses.KEY_NPAGE:
+        if key == curses.KEY_NPAGE or self._is_nav_page_next(key):
             self.state.reader_scroll = min(max_scroll, self.state.reader_scroll + viewport)
             return False
         if key == curses.KEY_HOME:
@@ -747,7 +801,8 @@ class CdxApp:
     def _submit_composer(self) -> None:
         message = self.state.composer.strip()
         if not message:
-            self.state.notice = "Composer is empty."
+            if not self.state.active_turn_id:
+                self.state.notice = "Composer is empty."
             return
         try:
             if self.state.active_turn_id:
@@ -827,7 +882,8 @@ class CdxApp:
         if item_type == "fileChange":
             status = item.get("status", "")
             changes = item.get("changes", [])
-            summary = f"{len(changes)} file change{'s' if len(changes) != 1 else ''}"
+            summary = self._file_change_summary(changes)
+            detail = self._file_change_detail(status, changes)
             icon = "[#]"
             color = "normal"
             if status == "completed":
@@ -839,7 +895,7 @@ class CdxApp:
             elif status == "declined":
                 icon = "[!]"
                 color = "warn"
-            return FeedEntry(item_id, "file", summary, icon=icon, color=color)
+            return FeedEntry(item_id, "file", summary, detail=detail, icon=icon, color=color)
         if item_type in {"mcpToolCall", "dynamicToolCall"}:
             tool = item.get("tool", "tool")
             status = item.get("status", "")
@@ -891,7 +947,118 @@ class CdxApp:
         if index is None:
             return
         current = self.state.feed[index]
-        current.detail = f"{current.detail}{delta}".strip()
+        separator = "\n\noutput:\n" if current.kind == "file" and current.detail and "output:" not in current.detail else ""
+        current.detail = f"{current.detail}{separator}{delta}".strip()
+
+    def _file_change_summary(self, changes: object) -> str:
+        change_list = changes if isinstance(changes, list) else []
+        count = len(change_list)
+        if count == 1 and isinstance(change_list[0], dict):
+            change = change_list[0]
+            path = self._change_path(change)
+            action = self._change_action(change)
+            stats = self._change_stat_label(change)
+            parts = [part for part in (action, path, stats) if part]
+            if parts:
+                return " ".join(parts)
+        return f"{count} file change{'s' if count != 1 else ''}"
+
+    def _file_change_detail(self, status: str, changes: object) -> str:
+        change_list = changes if isinstance(changes, list) else []
+        lines = [
+            "file change",
+            f"status: {status or 'pending'}",
+            f"files: {len(change_list)}",
+        ]
+        for index, raw_change in enumerate(change_list, start=1):
+            if not isinstance(raw_change, dict):
+                lines.extend(["", f"{index}. {raw_change}"])
+                continue
+            path = self._change_path(raw_change)
+            action = self._change_action(raw_change)
+            stats = self._change_stat_label(raw_change)
+            heading = f"{index}. {path or '(unknown path)'}"
+            if action:
+                heading = f"{heading}  [{action}]"
+            if stats:
+                heading = f"{heading}  {stats}"
+            lines.extend(["", heading])
+            old_path = self._first_text(raw_change, ("oldPath", "fromPath", "previousPath", "sourcePath"))
+            new_path = self._first_text(raw_change, ("newPath", "toPath", "targetPath", "destinationPath"))
+            if old_path and new_path and old_path != new_path:
+                lines.append(f"rename: {old_path} -> {new_path}")
+            hunks = self._change_hunk_count(raw_change)
+            if hunks is not None:
+                lines.append(f"hunks: {hunks}")
+        return "\n".join(lines)
+
+    def _change_path(self, change: dict[str, Any]) -> str:
+        return self._first_text(
+            change,
+            ("path", "filePath", "relativePath", "targetPath", "newPath", "toPath", "sourcePath", "oldPath", "fromPath"),
+        )
+
+    def _change_action(self, change: dict[str, Any]) -> str:
+        value = self._first_text(change, ("action", "operation", "changeType", "kind", "type", "status"))
+        return value.lower() if value else ""
+
+    def _change_stat_label(self, change: dict[str, Any]) -> str:
+        additions = self._first_int(change, ("additions", "added", "addedLines", "linesAdded", "insertions"))
+        deletions = self._first_int(change, ("deletions", "deleted", "removedLines", "linesRemoved", "removals"))
+        if additions is None or deletions is None:
+            patch = self._first_text(change, ("patch", "diff", "unifiedDiff"))
+            if patch:
+                inferred_additions, inferred_deletions = self._diff_stats(patch)
+                additions = inferred_additions if additions is None else additions
+                deletions = inferred_deletions if deletions is None else deletions
+        if additions is None and deletions is None:
+            return ""
+        return f"+{additions or 0} -{deletions or 0}"
+
+    def _change_hunk_count(self, change: dict[str, Any]) -> int | None:
+        hunks = change.get("hunks")
+        if isinstance(hunks, list):
+            return len(hunks)
+        patch = self._first_text(change, ("patch", "diff", "unifiedDiff"))
+        if patch:
+            return sum(1 for line in patch.splitlines() if line.startswith("@@"))
+        return None
+
+    @staticmethod
+    def _first_text(payload: dict[str, Any], keys: tuple[str, ...]) -> str:
+        for key in keys:
+            value = payload.get(key)
+            if value is None:
+                continue
+            text = str(value).strip()
+            if text:
+                return text
+        return ""
+
+    @staticmethod
+    def _first_int(payload: dict[str, Any], keys: tuple[str, ...]) -> int | None:
+        for key in keys:
+            value = payload.get(key)
+            if isinstance(value, bool):
+                continue
+            if isinstance(value, int):
+                return value
+            if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+                return int(value)
+        return None
+
+    @staticmethod
+    def _diff_stats(patch: str) -> tuple[int, int]:
+        additions = 0
+        deletions = 0
+        for line in patch.splitlines():
+            if line.startswith("+++") or line.startswith("---"):
+                continue
+            if line.startswith("+"):
+                additions += 1
+            elif line.startswith("-"):
+                deletions += 1
+        return additions, deletions
 
     def _render_feed(self, stdscr, top: int, width: int, height: int) -> None:
         if not self.state.feed:
@@ -904,12 +1071,20 @@ class CdxApp:
             entry = self.state.feed[index]
             lines = self._entry_preview_lines(entry, width)
             color = self._entry_color(entry)
-            if index == self.state.selected_entry:
+            selected = index == self.state.selected_entry
+            if selected:
                 color = "selected_warn" if color == "warn" else "selected"
-            for line in lines:
+            for offset, line in enumerate(lines):
                 if row >= top + height:
                     break
-                self._draw_line(stdscr, row, 0, line, color)
+                if selected:
+                    marker = ">" if offset == 0 else "|"
+                    self._draw_line(stdscr, row, 0, " " * max(0, width - 1), "selected_bg")
+                    self._draw_line(stdscr, row, 0, marker, "pick_status")
+                    self._draw_line(stdscr, row, 2, self._fit(line, max(1, width - 2)), color)
+                else:
+                    line = f"  {line}"
+                    self._draw_line(stdscr, row, 0, self._fit(line, width), color)
                 row += 1
             index += 1
         while row < top + height:
@@ -974,6 +1149,46 @@ class CdxApp:
             return
         self._set_selection(self.state.selected_entry + delta)
 
+    def _feed_pick_status(self) -> str:
+        if not self.state.feed:
+            return ""
+        return f"pick {self.state.selected_entry + 1}/{len(self.state.feed)}"
+
+    def _session_status(self) -> str:
+        if self.state.active_item_label:
+            return self.state.active_item_label
+        if self.state.active_turn_id:
+            return "agent is working"
+        if self.state.notice:
+            return self.state.notice
+        return ""
+
+    def _clear_idle_notice(self) -> None:
+        if self.state.notice in {"Composer is empty.", "Turn started.", "Steer sent."}:
+            self.state.notice = ""
+
+    @staticmethod
+    def _active_item_label(entry: FeedEntry) -> str:
+        if entry.kind == "agent":
+            return "writing response"
+        if entry.kind == "command":
+            return "running command"
+        if entry.kind == "file":
+            return "editing files"
+        if entry.kind == "tool":
+            return f"using {entry.summary}"
+        if entry.kind == "plan":
+            return "updating plan"
+        if entry.kind == "reasoning":
+            return "thinking"
+        return f"working on {entry.kind}"
+
+    def _move_reader_selection(self, delta: int) -> None:
+        previous = self.state.selected_entry
+        self._move_selection(delta)
+        if self.state.selected_entry != previous:
+            self.state.reader_scroll = 0
+
     def _open_reader(self) -> None:
         if not self.state.feed:
             return
@@ -988,26 +1203,26 @@ class CdxApp:
         lines.extend(self._wrap(entry.summary.replace("\n", " "), width))
         if entry.detail:
             lines.extend(["", "detail:", ""])
-            lines.extend(self._wrap(entry.detail.replace("\n", " "), width))
+            lines.extend(self._wrap_block(entry.detail, width))
         return lines
 
     def _render_reader(self, stdscr) -> None:
         height, width = stdscr.getmaxyx()
-        box_top = 2
-        box_left = 2
-        box_height = max(6, height - 4)
-        box_width = max(12, width - 4)
+        box_top = 1
+        box_left = 0
+        box_height = max(4, height - 1)
+        box_width = max(12, width - 1)
         content_width = max(1, box_width - 4)
-        content_height = max(1, box_height - 4)
+        content_height = max(1, box_height - 2)
         lines = self._reader_lines(content_width)
         max_scroll = max(0, len(lines) - content_height)
         self.state.reader_scroll = min(max(0, self.state.reader_scroll), max_scroll)
         self._fill_rect(stdscr, box_top, box_left, box_height, box_width, "overlay")
-        self._draw_line(stdscr, box_top, box_left + 2, self._fit("message", box_width - 4), "overlay_title")
-        bottom_hint = "Enter/Esc close  Up/Down scroll"
-        self._draw_line(stdscr, box_top + box_height - 1, box_left + 2, self._fit(bottom_hint, box_width - 4), "dim")
+        self._draw_box(stdscr, box_top, box_left, box_height, box_width, "overlay_border")
+        title = f" message {self.state.selected_entry + 1}/{max(1, len(self.state.feed))} "
+        self._draw_line(stdscr, box_top, box_left + 2, self._fit(title, box_width - 4), "overlay_title")
         visible = lines[self.state.reader_scroll : self.state.reader_scroll + content_height]
-        for row, line in enumerate(visible, start=box_top + 2):
+        for row, line in enumerate(visible, start=box_top + 1):
             if row >= box_top + box_height - 1:
                 break
             self._draw_line(stdscr, row, box_left + 2, line, "overlay")
@@ -1025,12 +1240,14 @@ class CdxApp:
     def _clamp_composer_view(self, viewport: int | None = None) -> None:
         if viewport is None:
             viewport = 1
+        viewport = max(1, viewport)
         self.state.composer_cursor = min(max(0, self.state.composer_cursor), len(self.state.composer))
         if self.state.composer_cursor < self.state.composer_scroll:
             self.state.composer_scroll = self.state.composer_cursor
         elif self.state.composer_cursor >= self.state.composer_scroll + viewport:
             self.state.composer_scroll = self.state.composer_cursor - viewport
-        self.state.composer_scroll = min(max(0, self.state.composer_scroll), len(self.state.composer))
+        max_scroll = max(0, len(self.state.composer) - viewport)
+        self.state.composer_scroll = min(max(0, self.state.composer_scroll), max_scroll)
 
     def _insert_composer_text(self, text: str) -> None:
         cursor = self.state.composer_cursor
@@ -1074,6 +1291,15 @@ class CdxApp:
             return [compact[i : i + width] for i in range(0, len(compact), width)] or [""]
         return textwrap.wrap(text.replace("\n", " "), width=width) or [""]
 
+    def _wrap_block(self, text: str, width: int) -> list[str]:
+        lines: list[str] = []
+        for raw_line in text.splitlines():
+            if not raw_line:
+                lines.append("")
+                continue
+            lines.extend(self._wrap(raw_line, width))
+        return lines or [""]
+
     @staticmethod
     def _clamp_lines(lines: list[str], limit: int, width: int) -> list[str]:
         if len(lines) <= limit:
@@ -1087,6 +1313,22 @@ class CdxApp:
     @staticmethod
     def _is_ctrl_char(value: object, codepoint: int) -> bool:
         return isinstance(value, str) and len(value) == 1 and ord(value) == codepoint
+
+    @classmethod
+    def _is_nav_prev(cls, key: object) -> bool:
+        return cls._is_ctrl_char(key, 16)
+
+    @classmethod
+    def _is_nav_next(cls, key: object) -> bool:
+        return cls._is_ctrl_char(key, 14)
+
+    @classmethod
+    def _is_nav_page_prev(cls, key: object) -> bool:
+        return cls._is_ctrl_char(key, 21)
+
+    @classmethod
+    def _is_nav_page_next(cls, key: object) -> bool:
+        return cls._is_ctrl_char(key, 4)
 
     @staticmethod
     def _short_path(raw_path: str, max_parts: int = 2) -> str:
@@ -1114,6 +1356,16 @@ class CdxApp:
     def _fill_rect(self, stdscr, top: int, left: int, height: int, width: int, color: str) -> None:
         for row in range(top, top + height):
             self._draw_line(stdscr, row, left, " " * max(0, width - 1), color)
+
+    def _draw_box(self, stdscr, top: int, left: int, height: int, width: int, color: str) -> None:
+        if height < 2 or width < 2:
+            return
+        horizontal = "-" * max(0, width - 2)
+        self._draw_line(stdscr, top, left, f"+{horizontal}+", color)
+        for row in range(top + 1, top + height - 1):
+            self._draw_line(stdscr, row, left, "|", color)
+            self._draw_line(stdscr, row, left + width - 1, "|", color)
+        self._draw_line(stdscr, top + height - 1, left, f"+{horizontal}+", color)
 
     @staticmethod
     def _entry_label(entry: FeedEntry) -> str:
@@ -1158,6 +1410,10 @@ class CdxApp:
         curses.init_pair(6, curses.COLOR_BLACK, curses.COLOR_CYAN)
         curses.init_pair(7, curses.COLOR_BLACK, curses.COLOR_YELLOW)
         curses.init_pair(8, curses.COLOR_BLACK, curses.COLOR_WHITE)
+        curses.init_pair(9, curses.COLOR_CYAN, curses.COLOR_WHITE)
+        curses.init_pair(10, curses.COLOR_BLACK, curses.COLOR_GREEN)
+        curses.init_pair(11, curses.COLOR_BLACK, curses.COLOR_MAGENTA)
+        curses.init_pair(12, curses.COLOR_YELLOW, -1)
 
     @staticmethod
     def _color_attr(color: str) -> int:
@@ -1170,10 +1426,13 @@ class CdxApp:
             "error": curses.color_pair(4),
             "dim": curses.color_pair(5) | curses.A_DIM,
             "normal": curses.color_pair(5),
-            "selected": curses.color_pair(6) | curses.A_BOLD,
+            "selected": curses.color_pair(10) | curses.A_BOLD,
             "selected_warn": curses.color_pair(7) | curses.A_BOLD,
+            "selected_bg": curses.color_pair(10),
+            "pick_status": curses.color_pair(12) | curses.A_BOLD,
             "overlay": curses.color_pair(8),
             "overlay_title": curses.color_pair(8) | curses.A_BOLD,
+            "overlay_border": curses.color_pair(9) | curses.A_BOLD,
         }
         return mapping.get(color, curses.A_NORMAL)
 

@@ -3,6 +3,7 @@ from .game import GameSelectScreen, MagiRouteScreen, SyncDeflectScreen
 from .home import HomeScreen
 from .system import SystemScreen
 from .term import TerminalScreen
+from .tinscope import TinScopeScreen
 
 __all__ = [
     "Screen",
@@ -13,4 +14,5 @@ __all__ = [
     "SyncDeflectScreen",
     "SystemScreen",
     "TerminalScreen",
+    "TinScopeScreen",
 ]

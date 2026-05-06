@@ -282,6 +282,10 @@ def cell_width(font: ImageFont.ImageFont | ImageFont.FreeTypeFont) -> int:
     return max(1, bbox[2] - bbox[0])
 
 
+def terminal_cell_advance(font: ImageFont.ImageFont | ImageFont.FreeTypeFont) -> float:
+    return max(1.0, float(font.getlength("M")))
+
+
 def render_terminal(
     draw: ImageDraw.ImageDraw,
     lines: Iterable[str],
@@ -293,7 +297,7 @@ def render_terminal(
     codex_compact: bool = False,
 ) -> None:
     x, y = origin
-    width = cell_width(font)
+    width = terminal_cell_advance(font)
     if not codex_compact:
         for row_index, raw in enumerate(lines):
             if row_index >= max_rows:
@@ -311,9 +315,8 @@ def render_terminal(
                     visible = visible[:remaining]
                 if not visible:
                     continue
-                draw.text((cursor_x, row_y), visible, font=font, fill=color)
-                advance = len(visible) * width
-                cursor_x += advance
+                draw.text((int(round(cursor_x)), row_y), visible, font=font, fill=color)
+                cursor_x += draw.textlength(visible, font=font)
                 cols_used += len(visible)
         return
 
@@ -355,11 +358,11 @@ def _draw_terminal_row(
     font: ImageFont.ImageFont | ImageFont.FreeTypeFont,
     x: int,
     y: int,
-    width: int,
+    width: float,
 ) -> None:
     cursor_x = x
     for segment, color in segments:
         if not segment:
             continue
-        draw.text((cursor_x, y), segment, font=font, fill=color)
-        cursor_x += len(segment) * width
+        draw.text((int(round(cursor_x)), y), segment, font=font, fill=color)
+        cursor_x += draw.textlength(segment, font=font)

@@ -52,7 +52,8 @@ On launch, `cdx` opens a small startup screen:
 
 Controls:
 
-- `Up` / `Down`: move selection
+- `Ctrl+P` / `Ctrl+N`: move selection
+- `Up` / `Down`: move selection when delivered by the terminal
 - `Enter`: start or resume
 - `q`: quit
 
@@ -65,11 +66,13 @@ In the main session view:
 - `Tab`: switch between feed focus and composer focus
 - `Enter` in feed focus: open the selected entry in the reader
 - `Enter` in composer focus: send the composer text
-- `Up` / `Down` in feed focus: move between feed entries
-- `PageUp` / `PageDown` in feed focus: jump through the feed
+- `Ctrl+P` / `Ctrl+N` in feed focus: move between feed entries
+- `Ctrl+U` / `Ctrl+D` in feed focus: jump through the feed
+- `Up` / `Down` in feed focus: same movement when delivered by the terminal
 - `Home` / `End` in feed focus: jump to the first or last entry
 - `Esc` in feed focus: quit
 - `Esc` in composer focus: clear the composer, or return to feed focus if already empty
+- `Up` / `Down` in composer focus: move through feed entries while keeping the composer active
 - `Left` / `Right` in composer focus: move through the composer text
 - `Home` / `End` in composer focus: jump to the start or end of the composer
 - `Backspace` / `Delete` in composer focus: edit at the cursor
@@ -81,8 +84,9 @@ In the main session view:
 
 In the reader overlay:
 
-- `Up` / `Down`: scroll by line
-- `PageUp` / `PageDown`: scroll by page
+- `Up` / `Down`: move to the previous or next feed message without closing the reader
+- `Ctrl+P` / `Ctrl+N`: scroll by line
+- `Ctrl+U` / `Ctrl+D`: scroll by page
 - `Home` / `End`: jump to start or end
 - `Enter` or `Esc`: close the reader and return to the feed
 
