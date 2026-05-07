@@ -1,108 +1,162 @@
-# TinScope
+# TinScope Agent
 
-TinScope is a compact research surface for checking what a host exposes from the cyberdeck UI. It is intentionally focused on discovery and configuration visibility: DNS resolution, common TCP port reachability, HTTP response headers, TLS certificate metadata, and a Markdown report.
+TinScope is the Altoids cyberdeck network field agent. It is designed for the tiny tin display: one state, one prompt, a short inbox, and an inspection overlay for details.
 
-It does not run exploit payloads, credential attacks, stealth behavior, persistence, or destructive checks.
+The UI follows the project design system: Teenage Engineering restraint, Evangelion/MAGI command language, and VFD-style readouts. It avoids dense tables on the small screen.
+
+TinScope performs research and visibility checks only. It does not run exploit payloads, credential attacks, deauth, file extraction, stealth actions, persistence on other hosts, or destructive checks.
 
 ## Open TinScope
 
 Use `CMD+R` from anywhere in the Altoids UI.
 
-TinScope is also part of the normal screen cycle:
+TinScope is also in the normal screen cycle:
 
 ```text
 Home -> TinScope -> Game -> Terminal -> System
 ```
 
-## Keyboard Flow
+## Operator Flow
 
-The full TinScope flow is reachable from the keyboard with simple controls:
+TinScope runs the **Network Field Kit** mission:
+
+1. Reads Wi-Fi status and local IP.
+2. Infers a likely gateway and local network identity.
+3. Runs a bounded local baseline probe.
+4. Checks common gateway/web surfaces when visible.
+5. Compares the current snapshot to previous memory.
+6. Requests approval before a deeper local sweep.
+7. Writes the latest JSON snapshot, timeline events, and Markdown report.
+
+The main screen uses compact states:
+
+```text
+IDLE
+SURVEYING
+ANALYZING
+REQUEST
+READY
+ERROR
+```
+
+## Keyboard Controls
+
+Everything is reachable from the keyboard.
 
 | Key | Action |
 | --- | --- |
-| Text keys | Type/edit the target host |
-| `Backspace` | Delete one target character |
-| `Delete` | Clear the target |
-| `Up` / `Down` | Cycle target presets |
-| `Left` / `Right` | Move between TinScope pages |
-| `Tab` | Next page |
-| `1`..`4` | Jump to Target, Ports, Web, or Report |
-| `Space` | Change scan profile |
-| `Space` on Report page | Export Markdown report |
-| `Enter` | Run scan |
-| `Esc` / `Q` | Return home |
+| `Enter` | Start mission, approve request, inspect selected item, or run selected action |
+| `Space` | Show context for the current request/result |
+| `Esc` | Deny request, close overlay, or return home |
+| `Q` | Return home when no overlay is open |
+| `Left` / `Right` | Switch operator page |
+| `Up` / `Down` | Select page item |
+| `Tab` | Inspect selected item |
 
-Button controls remain available:
+In the inspection overlay:
+
+| Key | Action |
+| --- | --- |
+| `Up` / `Down` | Scroll detail lines |
+| `Left` / `Right` | Inspect previous or next inbox item |
+| `Home` / `End` | Jump to start or end of detail |
+| `Enter` / `Esc` | Close overlay |
+
+Button controls mirror the keyboard path:
 
 | Button | Action |
 | --- | --- |
-| `A` | Cycle target preset |
-| `B` | Next page |
-| `X` | Run scan |
-| long `X` | Export Markdown report |
-| `Y` | Change scan profile |
-| long `Y` | Return home |
+| `A` / `B` | Select previous or next inbox item |
+| `X` | Start, approve, or inspect |
+| `Y` | Context |
+| long `Y` | Home |
 
-## Pages
+## Operator Pages
 
-### Target
+TinScope keeps the autonomous agent as the default, but exposes focused manual pages for inspection and safe research actions.
 
-Shows the active target, scan profile, resolved IP, scan age, and a compact risk meter.
+| Page | Purpose |
+| --- | --- |
+| `Agent` | Autonomous state, current prompt, and recent inbox |
+| `Map` | ASCII topology summary from the latest snapshot |
+| `Inbox` | Findings, requests, and reports |
+| `Targets` | Discovered hosts with compact open-port summaries |
+| `Actions` | Manual safe actions like quick sweep, router check, compare, and export |
+| `Timeline` | Persisted network memory events |
+| `Signal` | Wi-Fi/IP/gateway instrument readout |
 
-Targets are hostnames or single IP addresses. CIDR ranges are rejected in the UI.
-
-### Ports
-
-Checks TCP reachability for the active profile and displays open ports from the selected set.
-
-### Web
-
-Checks `http://target/` and `https://target/` with a `HEAD /` request. It shows response status, missing security-header count, TLS certificate expiry, days remaining, and issuer when available.
-
-Headers checked:
-
-- `Strict-Transport-Security`
-- `Content-Security-Policy`
-- `X-Frame-Options`
-- `X-Content-Type-Options`
-- `Referrer-Policy`
-
-### Report
-
-Summarizes risk, open ports, header gaps, TLS state, and suggested next actions.
-
-Press `Space` on the Report page, or long-press `X`, to export:
+The Map page is intentionally visual instead of detailed:
 
 ```text
-.runtime/tinscope-report.md
+     INTERNET ?
+         |
+   [ROUTER] .1
+     /   |   \
+[DECK] .42
+[HOST] .24 *22,80
 ```
 
-## Scan Profiles
+The Actions page currently exposes:
 
-TinScope supports four built-in scan profiles:
+- `QUICK SWEEP`
+- `DEEP SWEEP`
+- `CHECK ROUTER`
+- `COMPARE LAST`
+- `EXPORT REPORT`
 
-| Profile | Purpose |
-| --- | --- |
-| `QUICK` | Small baseline for SSH, HTTP, HTTPS, and common dev ports |
-| `WEB` | Web-focused ports and alternate HTTP/TLS ports |
-| `DEV` | Common local development and datastore ports |
-| `WIDE` | Broader common-service sweep while still staying lightweight |
+## Persistence
 
-Use `Space` to cycle profiles from any page except Report.
+TinScope stores state under:
 
-## Current Implementation
+```text
+.runtime/tinscope/
+```
 
-TinScope currently uses Python standard-library networking:
+Files:
 
-- `socket.gethostbyname` for name resolution
-- TCP connect checks for port reachability
-- `http.client` for HTTP/HTTPS header checks
-- `ssl` for certificate metadata
+```text
+.runtime/tinscope/state.json
+.runtime/tinscope/networks/<network_id>/timeline.jsonl
+.runtime/tinscope/networks/<network_id>/latest.json
+.runtime/tinscope/networks/<network_id>/report.md
+```
 
-Future extensions that fit the tool:
+`state.json` lets the UI resume the last visible inbox and report path. Network folders keep a timeline grouped by network identity.
 
-- optional `nmap` backend when installed
-- DNS record details when a resolver library is available
-- saved target profiles
-- local-only LAN inventory mode
-- richer report history
+The network identity is chosen from available context:
+
+- Wi-Fi SSID when connected
+- inferred gateway/LAN label when no SSID is available
+- local IP fallback
+- `offline` fallback
+
+## Inbox And Overlay
+
+TinScope shows findings and requests as a small inbox, similar to the `cdx` feed/reader model:
+
+- inbox entries are short and selectable
+- long details are hidden from the main display
+- `Enter` or `Tab` opens the selected item
+- the overlay wraps and scrolls detail text
+
+Typical inbox entries:
+
+```text
+[#] Network field kit started
+[+] LAN 192.168.1.24
+[+] 3 hosts seen, 4 ports open
+[?] Approve deeper local sweep?
+[+] Report ready
+```
+
+## Reports
+
+The Markdown report summarizes the latest mission:
+
+- network identity
+- SSID/local IP/gateway
+- mission findings
+- discovered hosts
+- open ports seen by TinScope
+
+The JSON snapshot is intended for future comparisons and automation.

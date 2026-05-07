@@ -394,6 +394,28 @@ class AltoidsApp:
         return 0.0
 
     def _ip_address(self) -> str:
+        if psutil:
+            preferred: list[str] = []
+            fallback: list[str] = []
+            try:
+                interfaces = psutil.net_if_addrs()
+            except OSError:
+                interfaces = {}
+            for name, entries in interfaces.items():
+                for entry in entries:
+                    if entry.family != socket.AF_INET:
+                        continue
+                    address = entry.address
+                    if not address or address.startswith("127."):
+                        continue
+                    if name.startswith(("wlan", "wifi", "wl", "eth", "en")):
+                        preferred.append(address)
+                    else:
+                        fallback.append(address)
+            if preferred:
+                return preferred[0]
+            if fallback:
+                return fallback[0]
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
                 sock.connect(("8.8.8.8", 80))
@@ -470,16 +492,18 @@ class AltoidsApp:
                 title="TINSCOPE",
                 rows=[
                     ("open tinscope", "CMD+R"),
-                    ("edit target", "Text keys"),
-                    ("clear target", "Delete"),
-                    ("scan target", "Enter / X"),
-                    ("change scan profile", "Space / Y"),
-                    ("export report", "Report: Space"),
-                    ("cycle target preset", "Up/Down / A"),
-                    ("prev/next page", "Left/Right"),
-                    ("next page", "Tab / B"),
-                    ("jump pages", "1-4"),
-                    ("home", "Q / Esc"),
+                    ("start mission", "Enter / X"),
+                    ("approve request", "Enter / X"),
+                    ("deny request", "Esc"),
+                    ("inspect item", "Enter / Tab"),
+                    ("context", "Space / Y"),
+                    ("select item", "Up/Down"),
+                    ("switch page", "Left/Right"),
+                    ("run action", "Actions: Enter"),
+                    ("overlay scroll", "Up/Down"),
+                    ("overlay item", "Left/Right"),
+                    ("close overlay", "Enter/Esc"),
+                    ("home", "Esc / Q"),
                 ],
             ),
             HelpPage(

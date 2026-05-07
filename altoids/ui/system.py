@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from PIL import ImageDraw
 
-from ..colors import ACCENT, DIM, FG, SURFACE_GRID, WARN
+from ..colors import ACCENT, AUX, COOL, DIM, FG, INFO, SURFACE_ALT, SURFACE_GRID, WARN
 from ..input_keyboard import KeyboardEvent
 from ..wifi import WifiNetwork
 from .base import Screen, ScreenContext
-from .widgets import draw_label, draw_panel, draw_scanlines, draw_segmented_bar, draw_separator
+from .widgets import draw_label, draw_panel, draw_scanlines, draw_segmented_bar, draw_separator, draw_status_dot
 
 
 class SystemScreen(Screen):
@@ -65,46 +65,34 @@ class SystemScreen(Screen):
         buffer.paste(self.cached_background(signature, buffer.size, self._paint_system_background))
         draw = ImageDraw.Draw(buffer)
 
-        log_bounds = (12, 168, width - 12, content_bottom)
-        core_lines = [
-            ".----------------.",
-            "| SYS CORE : OK  |",
-            f"| UPTIME   {uptime_field(stats['uptime']):<6}|",
-            "'----------------'",
-        ]
-        for index, line in enumerate(core_lines):
-            draw_label(draw, 28, 40 + index * 11, line, app.terminal_font, ACCENT if index < 2 else DIM)
+        temp_color = WARN if stats["temperature_hot"] else ACCENT
+        self._draw_status_row(draw, 24, 42, "CORE", "ONLINE", True, ACCENT)
+        draw_label(draw, 24, 60, self._trim(f"UP {stats['uptime']}", 14), app.font, FG)
+        draw_label(draw, 24, 76, self._trim(f"TMUX {stats['terminal_windows']} WIN", 14), app.font, DIM)
 
-        link_lines = [
-            ".--------------.",
-            f"| WIFI {wifi_status.signal:>3}% {'ON ' if wifi_status.connected else 'OFF'}|",
-            f"| BT   {'LIVE' if app.bluetooth_status.connected else 'IDLE'}     |",
-            "'--------------'",
-        ]
-        for index, line in enumerate(link_lines):
-            color = ACCENT if wifi_status.connected and index < 2 else FG if index == 1 else DIM
-            draw_label(draw, 164, 40 + index * 11, line, app.terminal_font, color)
-        draw_label(draw, 160, 82, self._trim(wifi_status.ssid or wifi_status.state.upper(), 13), app.font, FG)
+        self._draw_status_row(draw, 158, 42, "WIFI", "ON" if wifi_status.connected else "OFF", wifi_status.connected, INFO)
+        draw_segmented_bar(draw, 158, 60, 72, wifi_status.signal / 100.0, segments=7, color=INFO if wifi_status.connected else DIM)
+        self._draw_status_row(draw, 158, 76, "BT", "LIVE" if app.bluetooth_status.connected else "IDLE", app.bluetooth_status.connected, COOL)
 
         self._draw_meter_row(draw, 24, 116, "CPU", stats["cpu_pct"], f"{int(stats['cpu_pct'] * 100):>3}%")
         self._draw_meter_row(draw, 24, 132, "MEM", stats["mem_pct"], f"{int(stats['mem_pct'] * 100):>3}%")
-        temp_color = WARN if stats["temperature_hot"] else ACCENT
         self._draw_meter_row(draw, 24, 148, "TMP", stats["temperature_pct"], stats["temperature_label"], color=temp_color)
-        draw_label(draw, 184, 116, self._trim(f"DSK {stats['disk_label']}", 13), app.font, FG)
-        draw_label(draw, 184, 132, self._trim(f"IP  {stats['ip_address']}", 13), app.font, FG)
-        draw_label(draw, 184, 148, self._trim(f"TMX {stats['terminal_windows']} WIN", 13), app.font, FG)
+        draw_label(draw, 190, 116, self._trim(f"DSK {stats['disk_label']}", 12), app.font, FG)
+        draw_label(draw, 190, 132, self._trim(f"IP {stats['ip_address']}", 12), app.font, FG)
+        draw_label(draw, 190, 148, self._trim(wifi_status.ssid or wifi_status.state.upper(), 12), app.font, INFO if wifi_status.connected else DIM)
 
         roster = self._network_roster(selected)
-        draw_label(draw, 22, 182, roster[0], app.font, FG)
-        draw_label(draw, 22, 194, roster[1], app.font, DIM)
+        wireless_y = (182, 194, 206) if footer_height else (182, 196, 210)
+        draw_label(draw, 22, wireless_y[0], roster[0], app.font, FG)
+        draw_label(draw, 22, wireless_y[1], roster[1], app.font, DIM)
         if self.entering_password and self.password_target is not None:
             masked = "*" * min(len(self.password_entry), 12)
             password_line = self._trim(f"PASS {self.password_target.ssid} {masked}", 30)
-            draw_label(draw, 22, 206, password_line, app.font, WARN)
+            draw_label(draw, 22, wireless_y[2], password_line, app.font, WARN)
         elif self.wifi_config_active:
-            draw_label(draw, 22, 206, roster[2], app.font, ACCENT)
+            draw_label(draw, 22, wireless_y[2], roster[2], app.font, ACCENT)
         else:
-            draw_label(draw, 22, 206, self._trim(self.status_line.upper(), 30), app.font, ACCENT if wifi_status.connected else DIM)
+            draw_label(draw, 22, wireless_y[2], self._trim(self.status_line.upper(), 30), app.font, ACCENT if wifi_status.connected else DIM)
 
     def _render_accents(self, buffer) -> None:
         app = self.context.app
@@ -118,22 +106,18 @@ class SystemScreen(Screen):
         draw = ImageDraw.Draw(buffer)
 
         status_color = ACCENT if status.whisplay_available else WARN
-        ascii_lines = [
-            ".----------------.",
-            "| SPK []  LED <*>|",
-            f"| RIG {'ONLINE' if status.whisplay_available else 'MISSING':<7}|",
-            "'----------------'",
-        ]
-        for index, line in enumerate(ascii_lines):
-            draw_label(draw, 24, 40 + index * 11, line, app.terminal_font, status_color if index < 2 else DIM)
+        self._draw_status_row(draw, 24, 42, "RIG", "ONLINE" if status.whisplay_available else "MISSING", True, status_color)
+        self._draw_status_row(draw, 24, 62, "SPK", status.audio_status.upper(), status.audio_available, INFO)
+        self._draw_status_row(draw, 24, 78, "LED", "ARMED" if status.led_enabled else "DARK", status.led_enabled, AUX)
 
-        draw_label(draw, 160, 42, f"VOL {status.volume_percent:>3}%", app.font_large, FG)
-        draw_label(draw, 160, 68, "MUTE" if status.muted else "LIVE", app.font, WARN if status.muted else ACCENT)
-        draw_segmented_bar(draw, 160, 82, 84, status.volume_percent / 100.0, segments=8, color=ACCENT)
+        draw_label(draw, 160, 42, f"{status.volume_percent:>3}%", app.font_large, FG)
+        draw_label(draw, 206, 48, "VOL", app.font, DIM)
+        draw_segmented_bar(draw, 160, 70, 84, status.volume_percent / 100.0, segments=8, color=ACCENT)
+        self._draw_status_row(draw, 160, 82, "CUE", "MUTE" if status.muted else "LIVE", not status.muted, WARN if status.muted else ACCENT)
 
         draw_label(draw, 24, 116, self._trim(f"WHISPLAY {('ONLINE' if status.whisplay_available else 'MISSING')}", 20), app.font, status_color)
-        draw_label(draw, 24, 132, self._trim(f"SPEAKER  {status.audio_status.upper()}", 20), app.font, ACCENT if status.audio_available else FG)
-        draw_label(draw, 24, 148, self._trim(f"LED PULSE {'ARMED' if status.led_enabled else 'DARK'}", 20), app.font, ACCENT if status.led_enabled else FG)
+        draw_label(draw, 24, 132, self._trim(f"SPEAKER  {status.audio_status.upper()}", 20), app.font, ACCENT if status.audio_available else DIM)
+        draw_label(draw, 24, 148, self._trim(f"LED PULSE {'ARMED' if status.led_enabled else 'DARK'}", 20), app.font, AUX if status.led_enabled else DIM)
         draw_label(draw, 170, 116, f"STBY {'YES' if status.sleeping else 'NO '}", app.font, WARN if status.sleeping else FG)
         draw_label(draw, 170, 132, f"MUTE {'YES' if status.muted else 'NO '}", app.font, WARN if status.muted else FG)
         draw_label(draw, 170, 148, self._trim(f"CUE {status.last_cue.upper()}", 12), app.font, DIM)
@@ -144,7 +128,7 @@ class SystemScreen(Screen):
         elif status.audio_error:
             message = status.audio_error
         draw_label(draw, 22, 184, self._trim(message.upper(), 30), app.font, WARN if (not status.whisplay_available or status.audio_error) else FG)
-        draw_label(draw, 22, 198, self._trim(f"AUDIO {status.audio_status.upper()}", 30), app.font, DIM)
+        draw_label(draw, 22, 200, self._trim(f"AUDIO {status.audio_status.upper()}", 30), app.font, DIM)
 
     def _paint_system_background(self, draw: ImageDraw.ImageDraw, buffer) -> None:
         app = self.context.app
@@ -154,19 +138,19 @@ class SystemScreen(Screen):
         content_bottom = height - footer_height - 8
 
         draw_label(draw, 12, 8, "SYSTEM // CONTROL", app.font, ACCENT)
-        draw_label(draw, width - 90, 8, "[1] SYS [2] AUX", app.font, DIM)
+        draw_label(draw, width - 84, 8, "SYS  AUX", app.font, DIM)
         draw_separator(draw, 20, width)
 
         core_bounds = (12, 28, 138, 96)
         link_bounds = (146, 28, width - 12, 96)
         meter_bounds = (12, 104, width - 12, 160)
         log_bounds = (12, 168, width - 12, content_bottom)
-        draw_panel(draw, core_bounds, title="CORE", title_font=app.font)
+        draw_panel(draw, core_bounds, title="CORE", title_font=app.font, outline=ACCENT, title_color=ACCENT)
         draw_scanlines(draw, core_bounds, step=6)
-        draw_panel(draw, link_bounds, title="LINK", title_font=app.font, outline=DIM, title_color=DIM)
+        draw_panel(draw, link_bounds, title="LINK", title_font=app.font, outline=INFO, title_color=INFO)
         draw_scanlines(draw, link_bounds, step=6)
-        draw_panel(draw, meter_bounds, title="LOAD", title_font=app.font)
-        draw_panel(draw, log_bounds, title="WIRELESS", title_font=app.font, outline=DIM, title_color=FG)
+        draw_panel(draw, meter_bounds, title="LOAD", title_font=app.font, fill=SURFACE_ALT)
+        draw_panel(draw, log_bounds, title="WIRELESS", title_font=app.font, outline=COOL, title_color=COOL)
         draw_scanlines(draw, log_bounds, step=6, color=SURFACE_GRID)
 
     def _paint_accents_background(self, draw: ImageDraw.ImageDraw, buffer) -> None:
@@ -177,19 +161,19 @@ class SystemScreen(Screen):
         content_bottom = height - footer_height - 8
 
         draw_label(draw, 12, 8, "ACCENTS // I/O", app.font, ACCENT)
-        draw_label(draw, width - 90, 8, "[1] SYS [2] AUX", app.font, DIM)
+        draw_label(draw, width - 84, 8, "SYS  AUX", app.font, DIM)
         draw_separator(draw, 20, width)
 
         rig_bounds = (12, 28, 138, 96)
         audio_bounds = (146, 28, width - 12, 96)
         controls_bounds = (12, 104, width - 12, 160)
         state_bounds = (12, 168, width - 12, content_bottom)
-        draw_panel(draw, rig_bounds, title="RIG", title_font=app.font, outline=ACCENT, title_color=ACCENT)
+        draw_panel(draw, rig_bounds, title="RIG", title_font=app.font, outline=AUX, title_color=AUX)
         draw_scanlines(draw, rig_bounds, step=6)
-        draw_panel(draw, audio_bounds, title="CUES", title_font=app.font)
+        draw_panel(draw, audio_bounds, title="CUES", title_font=app.font, outline=ACCENT, title_color=ACCENT)
         draw_scanlines(draw, audio_bounds, step=6)
-        draw_panel(draw, controls_bounds, title="CONTROL", title_font=app.font)
-        draw_panel(draw, state_bounds, title="STATUS", title_font=app.font, outline=DIM, title_color=FG)
+        draw_panel(draw, controls_bounds, title="CONTROL", title_font=app.font, fill=SURFACE_ALT)
+        draw_panel(draw, state_bounds, title="STATUS", title_font=app.font, outline=INFO, title_color=INFO)
         draw_scanlines(draw, state_bounds, step=6, color=SURFACE_GRID)
 
     def on_button(self, button: str, long_press: bool) -> bool:
@@ -498,8 +482,23 @@ class SystemScreen(Screen):
         color: str = ACCENT,
     ) -> None:
         draw_label(draw, x, y, label, self.context.app.font, FG)
-        draw_segmented_bar(draw, x + 34, y + 1, 98, pct, segments=10, color=color)
-        draw_label(draw, x + 138, y, value, self.context.app.font, color if color != ACCENT else FG)
+        draw_segmented_bar(draw, x + 34, y + 1, 86, pct, segments=10, color=color)
+        draw_label(draw, x + 126, y, value, self.context.app.font, color if color != ACCENT else FG)
+
+    def _draw_status_row(
+        self,
+        draw: ImageDraw.ImageDraw,
+        x: int,
+        y: int,
+        label: str,
+        value: str,
+        active: bool,
+        color: str,
+    ) -> None:
+        app = self.context.app
+        draw_status_dot(draw, x, y + 1, active, color)
+        draw_label(draw, x + 14, y, label, app.font, DIM)
+        draw_label(draw, x + 48, y, self._trim(value, 10), app.font, color if active else DIM)
 
     def _network_roster(self, selected: WifiNetwork | None) -> tuple[str, str, str]:
         wifi_status = self.context.app.wifi.status(allow_refresh=not self.context.app.input_render_pending)

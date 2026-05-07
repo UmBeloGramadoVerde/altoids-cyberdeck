@@ -8,7 +8,7 @@ This repository currently contains the first working scaffold of that system:
 - a home dashboard with an animated mascot and rotating status messages
 - a tmux-backed terminal screen
 - a system screen with device stats and Wi‑Fi controls
-- TinScope, a keyboard-reachable research surface for host exposure checks
+- TinScope, a keyboard-reachable network field agent with persisted reports
 - a sleep manager for backlight timeout
 - deployment/config scaffolding for `systemd`, `tmux-resurrect`, and `tmux-continuum`
 
@@ -179,11 +179,11 @@ Wi‑Fi management is implemented in [altoids/wifi.py](/Users/kaynaoliveira/Docu
 
 Implemented in [altoids/ui/tinscope.py](/home/kayna/altoids-cyberdeck/altoids/ui/tinscope.py:1).
 
-TinScope is a compact research tool for checking a host's visible surface from the deck UI. It supports target entry, scan profiles, TCP port reachability checks, HTTP/HTTPS header checks, TLS certificate metadata, and Markdown report export.
+TinScope is a compact network field agent for the deck UI. It runs a Network Field Kit mission, keeps the main screen focused on state and approvals, and stores detailed network memory under `.runtime/tinscope/`.
 
-The full flow is keyboard reachable: type a target, use `Space` to change profiles, `Enter` to scan, arrows or `Tab` to move around, and `Space` on the Report page to export.
+The full flow is keyboard reachable: `Enter` starts, approves, or opens the selected inbox item; `Space` shows context; `Esc` denies or backs out; arrows select and scroll. Detailed results open in a `cdx`-style inspection overlay instead of being packed into the tiny display.
 
-See [docs/tinscope.md](/home/kayna/altoids-cyberdeck/docs/tinscope.md:1) for controls, scan profiles, and report behavior.
+See [docs/tinscope.md](/home/kayna/altoids-cyberdeck/docs/tinscope.md:1) for controls, persistence, reports, and inspection behavior.
 
 ## Configuration
 
