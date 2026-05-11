@@ -85,6 +85,7 @@ In the main session view:
 In the reader overlay:
 
 - `Up` / `Down`: move to the previous or next feed message without closing the reader
+- `Left` / `Right`: scroll by line
 - `Ctrl+P` / `Ctrl+N`: scroll by line
 - `Ctrl+U` / `Ctrl+D`: scroll by page
 - `Home` / `End`: jump to start or end

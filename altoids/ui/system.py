@@ -37,13 +37,10 @@ class SystemScreen(Screen):
         if self._refresh_elapsed < 1.0:
             return False
         self._refresh_elapsed = 0.0
+        selected_network = self._selected_network()
+        selected_ssid = selected_network.ssid if selected_network is not None else None
         self.networks = self.context.app.wifi.scan(force=False, allow_refresh=False)
-        if self.networks:
-            self.selected_index = min(self.selected_index, len(self.networks) - 1)
-        else:
-            self.selected_index = 0
-        if self.wifi_config_active:
-            self.status_line = self.context.app.wifi.last_message
+        self._sync_wifi_selection(preferred_ssid=selected_ssid, prefer_active=False)
         return True
 
     def render(self, draw: ImageDraw.ImageDraw, buffer) -> None:
@@ -317,11 +314,10 @@ class SystemScreen(Screen):
 
     def _enter_wifi_config(self, *, force_scan: bool = False) -> None:
         self.wifi_config_active = True
+        selected_network = self._selected_network()
+        selected_ssid = selected_network.ssid if selected_network is not None else None
         self.networks = self.context.app.wifi.scan(force=force_scan)
-        if self.networks:
-            self.selected_index = min(self.selected_index, len(self.networks) - 1)
-        else:
-            self.selected_index = 0
+        self._sync_wifi_selection(preferred_ssid=selected_ssid, prefer_active=force_scan)
         self.status_line = self.context.app.wifi.last_message
         self._refresh_elapsed = 0.0
 
@@ -336,9 +332,14 @@ class SystemScreen(Screen):
             self.status_line = "no wifi networks"
             return
         self.selected_index = (self.selected_index + delta) % len(self.networks)
-        self.status_line = f"selected {self.networks[self.selected_index].ssid}"
+        network = self.networks[self.selected_index]
+        self.status_line = f"{self.selected_index + 1}/{len(self.networks)} selected {network.ssid}"
 
     def _connect_selected_network(self) -> None:
+        self._sync_wifi_selection(prefer_active=False)
+        if not self.networks:
+            self.status_line = "no wifi networks"
+            return
         network = self.networks[self.selected_index]
         if network.open:
             connected, message = self.context.app.wifi.connect(network)
@@ -375,6 +376,29 @@ class SystemScreen(Screen):
         self.password_target = None
         self.password_entry = ""
         self.status_line = "wifi connect canceled"
+
+    def _selected_network(self) -> WifiNetwork | None:
+        if not self.networks:
+            return None
+        if self.selected_index < 0 or self.selected_index >= len(self.networks):
+            return None
+        return self.networks[self.selected_index]
+
+    def _sync_wifi_selection(self, *, preferred_ssid: str | None = None, prefer_active: bool = True) -> None:
+        if not self.networks:
+            self.selected_index = 0
+            return
+        if prefer_active:
+            for index, network in enumerate(self.networks):
+                if network.active:
+                    self.selected_index = index
+                    return
+        if preferred_ssid:
+            for index, network in enumerate(self.networks):
+                if network.ssid == preferred_ssid:
+                    self.selected_index = index
+                    return
+        self.selected_index = min(max(self.selected_index, 0), len(self.networks) - 1)
 
     @staticmethod
     def _trim(text: str, limit: int) -> str:

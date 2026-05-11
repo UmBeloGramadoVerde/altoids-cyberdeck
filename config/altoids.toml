@@ -56,4 +56,18 @@ enabled = true
 pulses = true
 brightness = 0.35
 
+[voice]
+enabled = true
+backend = "openai"
+model = "gpt-4o-mini-transcribe"
+trigger = "meta+space"
+max_record_seconds = 30.0
+min_record_seconds = 0.25
+timeout_seconds = 30.0
+insert_trailing_space = false
+language = ""
+prompt = ""
+audio_device = ""
+sample_rate = 16000
+
 [wifi.passwords]

@@ -297,6 +297,27 @@ class TmuxManager:
             return
         self._run("send-keys", "-t", self._target(), text)
 
+    def paste_text(self, text: str) -> None:
+        if not text:
+            return
+        if not self.available or self._tmux_path is None:
+            return
+        self.ensure_session()
+        buffer_name = "altoids-voice"
+        try:
+            load = subprocess.run(
+                [self._tmux_path, "load-buffer", "-b", buffer_name, "-"],
+                input=text,
+                text=True,
+                capture_output=True,
+                timeout=self._command_timeout,
+            )
+        except subprocess.TimeoutExpired:
+            return
+        if load.returncode != 0:
+            return
+        self._run("paste-buffer", "-b", buffer_name, "-p", "-d", "-t", self._target())
+
     def resize(self, width_chars: int, height_chars: int) -> None:
         if not self.available:
             return

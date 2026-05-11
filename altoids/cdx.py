@@ -55,6 +55,17 @@ class RecentThread:
     name: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class ComposerLine:
+    start: int
+    end: int
+
+
+@dataclass(frozen=True, slots=True)
+class PasteText:
+    text: str
+
+
 @dataclass(slots=True)
 class CdxState:
     view: str = "startup"
@@ -143,6 +154,7 @@ class AppServerClient:
                     "experimentalApi": True,
                 },
             },
+            timeout=45.0,
         )
         self.notify("initialized")
         return response
@@ -604,12 +616,15 @@ class CdxApp:
             if status:
                 self._draw_line(stdscr, top, 0, self._fit(f"[*] {status}", width - 1), "dim")
                 top += 1
-        feed_height = max(4, height - top - 2)
+        composer_lines, cursor_y, cursor_x = self._composer_view(width - 1, max_lines=6)
+        composer_height = len(composer_lines)
+        feed_height = max(1, height - top - composer_height)
         self._render_feed(stdscr, top, width - 1, feed_height)
-        composer_text, cursor_x = self._composer_view(width - 1)
         composer_color = "accent" if self.state.session_focus == "composer" and not self.state.reader_open else "dim"
-        self._draw_line(stdscr, height - 1, 0, composer_text, composer_color)
-        self._set_cursor(stdscr, self.state.session_focus == "composer" and not self.state.reader_open, height - 1, cursor_x)
+        composer_top = height - composer_height
+        for offset, line in enumerate(composer_lines):
+            self._draw_line(stdscr, composer_top + offset, 0, line, composer_color, fill=True)
+        self._set_cursor(stdscr, self.state.session_focus == "composer" and not self.state.reader_open, composer_top + cursor_y, cursor_x)
         if self.state.reader_open:
             self._render_reader(stdscr)
 
@@ -619,6 +634,8 @@ class CdxApp:
                 key = stdscr.get_wch()
             except curses.error:
                 return False
+            if key == "\x1b":
+                key = self._read_escape_sequence(stdscr)
             if self.state.view == "startup":
                 return self._handle_startup_key(key)
             return self._handle_session_key(key)
@@ -703,13 +720,25 @@ class CdxApp:
         return False
 
     def _handle_composer_key(self, key: object) -> bool:
+        if isinstance(key, PasteText):
+            self._insert_composer_text(key.text)
+            return False
         if key in {"\n", "\r"} or key == curses.KEY_ENTER:
             self._submit_composer()
             return False
-        if key == curses.KEY_UP or self._is_nav_prev(key):
+        if self._is_shift_enter(key):
+            self._insert_composer_text("\n")
+            return False
+        if key == curses.KEY_UP:
+            self._move_composer_cursor_vertical(-1)
+            return False
+        if key == curses.KEY_DOWN:
+            self._move_composer_cursor_vertical(1)
+            return False
+        if self._is_nav_prev(key):
             self._move_selection(-1)
             return False
-        if key == curses.KEY_DOWN or self._is_nav_next(key):
+        if self._is_nav_next(key):
             self._move_selection(1)
             return False
         if key == curses.KEY_PPAGE or self._is_nav_page_prev(key):
@@ -736,31 +765,67 @@ class CdxApp:
             return False
         if key == curses.KEY_LEFT:
             self.state.composer_cursor = max(0, self.state.composer_cursor - 1)
-            self._clamp_composer_view()
+            self._clamp_composer_viewport()
             return False
         if key == curses.KEY_RIGHT:
             self.state.composer_cursor = min(len(self.state.composer), self.state.composer_cursor + 1)
-            self._clamp_composer_view()
+            self._clamp_composer_viewport()
             return False
         if key == curses.KEY_HOME:
-            self.state.composer_cursor = 0
-            self._clamp_composer_view()
+            self._move_composer_cursor_to_line_edge(start=True)
             return False
         if key == curses.KEY_END:
-            self.state.composer_cursor = len(self.state.composer)
-            self._clamp_composer_view()
+            self._move_composer_cursor_to_line_edge(start=False)
             return False
         if key == curses.KEY_RESIZE:
-            self._clamp_composer_view()
+            self._clamp_composer_viewport()
             return False
         if self._is_ctrl_char(key, 12):
             self._load_recent_threads()
             self.state.notice = "Recent threads refreshed."
             return False
-        if isinstance(key, str) and key.isprintable():
+        if isinstance(key, str) and key:
             self._insert_composer_text(key)
             return False
         return False
+
+    def _read_escape_sequence(self, stdscr) -> object:
+        chars = ["\x1b"]
+        deadline = time.monotonic() + 0.05
+        while time.monotonic() < deadline:
+            try:
+                next_key = stdscr.get_wch()
+            except curses.error:
+                time.sleep(0.001)
+                continue
+            if not isinstance(next_key, str):
+                return "\x1b"
+            chars.append(next_key)
+            sequence = "".join(chars)
+            if sequence == "\x1b[200~":
+                return self._read_bracketed_paste(stdscr)
+            if sequence in {"\x1b[13;2u", "\x1b[27;2;13~"}:
+                return sequence
+            if len(sequence) >= 8:
+                return sequence
+        return "\x1b" if len(chars) == 1 else "".join(chars)
+
+    def _read_bracketed_paste(self, stdscr) -> PasteText:
+        chars: list[str] = []
+        suffix = "\x1b[201~"
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            try:
+                key = stdscr.get_wch()
+            except curses.error:
+                time.sleep(0.001)
+                continue
+            if not isinstance(key, str):
+                continue
+            chars.append(key)
+            if "".join(chars[-len(suffix) :]) == suffix:
+                return PasteText("".join(chars[:-len(suffix)]))
+        return PasteText("".join(chars))
 
     def _handle_reader_key(self, key: object) -> bool:
         if key in {"\n", "\r"} or key == curses.KEY_ENTER or key in {27, "\x1b"}:
@@ -776,10 +841,10 @@ class CdxApp:
         if key == curses.KEY_DOWN:
             self._move_reader_selection(1)
             return False
-        if self._is_nav_prev(key):
+        if key == curses.KEY_LEFT or self._is_nav_prev(key):
             self.state.reader_scroll = max(0, self.state.reader_scroll - 1)
             return False
-        if self._is_nav_next(key):
+        if key == curses.KEY_RIGHT or self._is_nav_next(key):
             self.state.reader_scroll = min(max_scroll, self.state.reader_scroll + 1)
             return False
         if key == curses.KEY_PPAGE or self._is_nav_page_prev(key):
@@ -1228,32 +1293,75 @@ class CdxApp:
             self._draw_line(stdscr, row, box_left + 2, line, "overlay")
         self._set_cursor(stdscr, False, 0, 0)
 
-    def _composer_view(self, width: int) -> tuple[str, int]:
-        prompt = "> "
-        viewport = max(1, width - len(prompt))
-        self._clamp_composer_view(viewport)
-        visible = self.state.composer[self.state.composer_scroll : self.state.composer_scroll + viewport]
-        rendered = f"{prompt}{visible}"
-        cursor_x = len(prompt) + self.state.composer_cursor - self.state.composer_scroll
-        return self._fit(rendered, width), max(0, min(width - 1, cursor_x))
+    def _composer_view(self, width: int, max_lines: int) -> tuple[list[str], int, int]:
+        layout = self._composer_layout(width)
+        cursor_line = self._composer_cursor_line(layout)
+        self._clamp_composer_viewport(cursor_line=cursor_line, max_lines=max_lines)
+        top = self.state.composer_scroll
+        visible_layout = layout[top : top + max_lines]
+        rows: list[str] = []
+        for index, line in enumerate(visible_layout, start=top):
+            prefix = "> " if index == 0 else "  "
+            rows.append(self._fit(f"{prefix}{self.state.composer[line.start:line.end]}", width))
+        if not rows:
+            rows = ["> "]
+        cursor_line = self._composer_cursor_line(layout)
+        visible_cursor_line = max(0, min(len(rows) - 1, cursor_line - self.state.composer_scroll))
+        line = layout[cursor_line] if layout else ComposerLine(0, 0)
+        cursor_x = 2 + self.state.composer_cursor - line.start
+        return rows, visible_cursor_line, max(0, min(width - 1, cursor_x))
 
-    def _clamp_composer_view(self, viewport: int | None = None) -> None:
-        if viewport is None:
-            viewport = 1
-        viewport = max(1, viewport)
+    def _composer_layout(self, width: int) -> list[ComposerLine]:
+        viewport = max(1, width - 2)
+        text = self.state.composer
+        if not text:
+            return [ComposerLine(0, 0)]
+        lines: list[ComposerLine] = []
+        line_start = 0
+        index = 0
+        column = 0
+        while index < len(text):
+            if text[index] == "\n":
+                lines.append(ComposerLine(line_start, index))
+                index += 1
+                line_start = index
+                column = 0
+                continue
+            if column >= viewport:
+                lines.append(ComposerLine(line_start, index))
+                line_start = index
+                column = 0
+                continue
+            index += 1
+            column += 1
+        lines.append(ComposerLine(line_start, len(text)))
+        return lines
+
+    def _composer_cursor_line(self, layout: list[ComposerLine]) -> int:
+        cursor = self.state.composer_cursor
+        for index, line in enumerate(layout):
+            if line.start <= cursor <= line.end:
+                return index
+        return max(0, len(layout) - 1)
+
+    def _clamp_composer_viewport(self, cursor_line: int | None = None, max_lines: int = 6) -> None:
         self.state.composer_cursor = min(max(0, self.state.composer_cursor), len(self.state.composer))
-        if self.state.composer_cursor < self.state.composer_scroll:
-            self.state.composer_scroll = self.state.composer_cursor
-        elif self.state.composer_cursor >= self.state.composer_scroll + viewport:
-            self.state.composer_scroll = self.state.composer_cursor - viewport
-        max_scroll = max(0, len(self.state.composer) - viewport)
+        layout = self._composer_layout(max(1, self.state.screen_width - 1))
+        if cursor_line is None:
+            cursor_line = self._composer_cursor_line(layout)
+        max_lines = max(1, max_lines)
+        if cursor_line < self.state.composer_scroll:
+            self.state.composer_scroll = cursor_line
+        elif cursor_line >= self.state.composer_scroll + max_lines:
+            self.state.composer_scroll = cursor_line - max_lines + 1
+        max_scroll = max(0, len(layout) - max_lines)
         self.state.composer_scroll = min(max(0, self.state.composer_scroll), max_scroll)
 
     def _insert_composer_text(self, text: str) -> None:
         cursor = self.state.composer_cursor
         self.state.composer = f"{self.state.composer[:cursor]}{text}{self.state.composer[cursor:]}"
         self.state.composer_cursor = cursor + len(text)
-        self._clamp_composer_view()
+        self._clamp_composer_viewport()
         self.state.session_focus = "composer"
 
     def _delete_composer_before_cursor(self) -> None:
@@ -1262,14 +1370,35 @@ class CdxApp:
             return
         self.state.composer = f"{self.state.composer[:cursor - 1]}{self.state.composer[cursor:]}"
         self.state.composer_cursor = cursor - 1
-        self._clamp_composer_view()
+        self._clamp_composer_viewport()
 
     def _delete_composer_at_cursor(self) -> None:
         cursor = self.state.composer_cursor
         if cursor >= len(self.state.composer):
             return
         self.state.composer = f"{self.state.composer[:cursor]}{self.state.composer[cursor + 1:]}"
-        self._clamp_composer_view()
+        self._clamp_composer_viewport()
+
+    def _move_composer_cursor_vertical(self, delta: int) -> None:
+        layout = self._composer_layout(max(1, self.state.screen_width - 1))
+        current_line = self._composer_cursor_line(layout)
+        target_line = min(max(0, current_line + delta), len(layout) - 1)
+        current = layout[current_line]
+        target = layout[target_line]
+        column = self.state.composer_cursor - current.start
+        self.state.composer_cursor = min(target.end, target.start + max(0, column))
+        self._clamp_composer_viewport(cursor_line=target_line)
+
+    def _move_composer_cursor_to_line_edge(self, start: bool) -> None:
+        layout = self._composer_layout(max(1, self.state.screen_width - 1))
+        line_index = self._composer_cursor_line(layout)
+        line = layout[line_index]
+        self.state.composer_cursor = line.start if start else line.end
+        self._clamp_composer_viewport(cursor_line=line_index)
+
+    @staticmethod
+    def _is_shift_enter(key: object) -> bool:
+        return key in {"\x1b[13;2u", "\x1b[27;2;13~"}
 
     @staticmethod
     def _fit(text: str, width: int) -> str:

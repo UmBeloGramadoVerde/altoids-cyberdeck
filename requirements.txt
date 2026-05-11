@@ -1,5 +1,6 @@
 displayhatmini
 evdev
+openai
 Pillow
 psutil
 pyte

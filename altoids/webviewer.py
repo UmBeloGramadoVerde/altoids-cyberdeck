@@ -54,6 +54,14 @@ HTML_PAGE = """<!doctype html>
   <script>
     const screen = document.getElementById("screen");
     const refresh = () => { screen.src = "/frame?ts=" + Date.now(); };
+    const sendKey = async (event, eventType) => {
+      const payload = {key: event.key, code: event.code, ctrl: event.ctrlKey, alt: event.altKey, shift: event.shiftKey, meta: event.metaKey, event_type: eventType};
+      const response = await fetch("/key", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload)});
+      if (response.ok) {
+        event.preventDefault();
+        refresh();
+      }
+    };
     setInterval(refresh, 80);
     document.querySelectorAll("button[data-button]").forEach((button) => {
       button.addEventListener("click", async () => {
@@ -61,14 +69,8 @@ HTML_PAGE = """<!doctype html>
         refresh();
       });
     });
-    window.addEventListener("keydown", async (event) => {
-      const payload = {key: event.key, code: event.code, ctrl: event.ctrlKey, alt: event.altKey, shift: event.shiftKey, meta: event.metaKey};
-      const response = await fetch("/key", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload)});
-      if (response.ok) {
-        event.preventDefault();
-        refresh();
-      }
-    });
+    window.addEventListener("keydown", async (event) => { await sendKey(event, "press"); });
+    window.addEventListener("keyup", async (event) => { await sendKey(event, "release"); });
   </script>
 </body>
 </html>
@@ -82,9 +84,10 @@ def _normalize_web_key(payload: dict[str, object]) -> KeyboardEvent | None:
     alt = bool(payload.get("alt"))
     shift = bool(payload.get("shift"))
     meta = bool(payload.get("meta"))
+    event_type = "release" if payload.get("event_type") == "release" else "press"
 
-    if key in {"Meta", "OS"} or code in {"MetaLeft", "MetaRight"} or meta:
-        return KeyboardEvent(key="meta", raw_key=code or key, ctrl=ctrl, alt=alt, shift=shift)
+    if key in {"Meta", "OS"} or code in {"MetaLeft", "MetaRight"}:
+        return KeyboardEvent(key="meta", raw_key=code or key, ctrl=ctrl, alt=alt, shift=shift, event_type=event_type)
 
     named = {
         "Enter": "enter",
@@ -103,12 +106,14 @@ def _normalize_web_key(payload: dict[str, object]) -> KeyboardEvent | None:
         "Insert": "insert",
     }
     if key in named:
-        return KeyboardEvent(key=named[key], raw_key=code or key, ctrl=ctrl, alt=alt, shift=shift)
+        return KeyboardEvent(key=named[key], raw_key=code or key, ctrl=ctrl, alt=alt, shift=shift, event_type=event_type)
     if key == " ":
-        return KeyboardEvent(key=" ", raw_key=code or "Space", text=" ", ctrl=ctrl, alt=alt, shift=shift)
+        text = " " if event_type == "press" else ""
+        return KeyboardEvent(key=" ", raw_key=code or "Space", text=text, ctrl=ctrl, alt=alt, shift=shift, event_type=event_type)
     if len(key) == 1 and key.isprintable():
         logical = key.lower() if key.isalpha() else key
-        return KeyboardEvent(key=logical, raw_key=code or key, text=key, ctrl=ctrl, alt=alt, shift=shift)
+        text = key if event_type == "press" else ""
+        return KeyboardEvent(key=logical, raw_key=code or key, text=text, ctrl=ctrl, alt=alt, shift=shift, event_type=event_type)
     return None
 
 

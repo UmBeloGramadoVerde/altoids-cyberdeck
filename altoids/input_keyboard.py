@@ -129,6 +129,7 @@ class KeyboardEvent:
     ctrl: bool = False
     alt: bool = False
     shift: bool = False
+    event_type: str = "press"
 
 
 class KeyboardInput:
@@ -167,6 +168,7 @@ class KeyboardInput:
                         keycode = keycode[0]
                     if raw_event.value == 2:
                         continue
+                    event_type = "press" if raw_event.value == 1 else "release"
                     if keycode in MODIFIER_KEYS:
                         modifier = MODIFIER_KEYS[keycode]
                         if raw_event.value == 1:
@@ -174,9 +176,7 @@ class KeyboardInput:
                         elif raw_event.value == 0:
                             self._modifier_state.discard(modifier)
                         continue
-                    if raw_event.value != 1:
-                        continue
-                    event = self._to_keyboard_event(keycode)
+                    event = self._to_keyboard_event(keycode, event_type)
                     if event is not None:
                         events.append(event)
                 live_devices.append(device)
@@ -208,15 +208,19 @@ class KeyboardInput:
                 continue
             self._devices.append(device)
 
-    def _to_keyboard_event(self, keycode: str) -> KeyboardEvent | None:
+    def _to_keyboard_event(self, keycode: str, event_type: str = "press") -> KeyboardEvent | None:
         shift = "shift" in self._modifier_state
         ctrl = "ctrl" in self._modifier_state
         alt = "alt" in self._modifier_state
         if keycode in SPECIAL_KEYS:
-            return KeyboardEvent(key=SPECIAL_KEYS[keycode], raw_key=keycode, ctrl=ctrl, alt=alt, shift=shift)
+            return KeyboardEvent(key=SPECIAL_KEYS[keycode], raw_key=keycode, ctrl=ctrl, alt=alt, shift=shift, event_type=event_type)
         text = KEY_TEXT.get(keycode)
         if text is None:
             return None
+        if event_type != "press":
+            text = ""
+            logical_key = KEY_TEXT.get(keycode, keycode)
+            return KeyboardEvent(key=logical_key, raw_key=keycode, text=text, ctrl=ctrl, alt=alt, shift=shift, event_type=event_type)
         if shift:
             if text.isalpha():
                 text = text.upper()

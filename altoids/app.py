@@ -26,9 +26,10 @@ from .input_buttons import ButtonEvent, ButtonInput
 from .input_keyboard import KeyboardEvent, KeyboardInput
 from .sleep import SleepManager
 from .terminal import TmuxManager
+from .voice import VoiceManager, VoiceResult
 from .wifi import WifiManager
 from .webviewer import WebViewer
-from .ui import GameSelectScreen, HomeScreen, MagiRouteScreen, Screen, ScreenContext, SyncDeflectScreen, SystemScreen, TerminalScreen, TinScopeScreen
+from .ui import EmulationScreen, GameSelectScreen, HomeScreen, MagiRouteScreen, Screen, ScreenContext, SyncDeflectScreen, SystemScreen, TerminalScreen, TinScopeScreen
 from .ui.widgets import draw_label
 from .ui.widgets import draw_button_bar
 
@@ -128,12 +129,14 @@ class AltoidsApp:
         self.bluetooth_status = self.bluetooth_monitor.poll()
         self.sleep_manager = SleepManager(config.sleep.idle_seconds)
         self.accents = AccentManager(self.display, config.audio, config.led)
-        self.screen_order = ["home", "tinscope", "game", "term", "system"]
+        self.voice = VoiceManager(config.voice, enabled=config.voice.enabled and self.display.is_whisplay)
+        self.screen_order = ["home", "tinscope", "game", "emu", "term", "system"]
         context = ScreenContext(app=self)
         self.screens: dict[str, Screen] = {
             "home": HomeScreen(context),
             "tinscope": TinScopeScreen(context),
             "game": GameSelectScreen(context),
+            "emu": EmulationScreen(context),
             "sync_deflect": SyncDeflectScreen(context),
             "magi_route": MagiRouteScreen(context),
             "term": TerminalScreen(context),
@@ -152,6 +155,10 @@ class AltoidsApp:
         self._boot_accent_fired = False
         self._last_input_event_at: float | None = None
         self._last_input_to_render_ms: float | None = None
+        self._voice_meta_held = False
+        self._voice_trigger_active = False
+        self._voice_notice = ""
+        self._voice_notice_until = 0.0
 
     def _load_font(
         self,
@@ -222,6 +229,11 @@ class AltoidsApp:
 
     def handle_keyboard_event(self, event: KeyboardEvent) -> None:
         self._mark_input_event()
+        if self._handle_voice_key(event):
+            self.needs_redraw = True
+            return
+        if event.event_type != "press" and not self._active_screen_accepts_key_release():
+            return
         if self.sleep_manager.sleeping:
             self.sleep_manager.bump()
             self.display.exit_standby(self.config.display.backlight_brightness)
@@ -271,9 +283,62 @@ class AltoidsApp:
                 self.tmux.send_keys([self._tmux_key_name(event.key)])
                 self.needs_redraw = True
 
+    def _handle_voice_key(self, event: KeyboardEvent) -> bool:
+        if self.config.voice.trigger != "meta+space":
+            return False
+        if event.key == "meta":
+            self._voice_meta_held = event.event_type == "press"
+            if event.event_type == "release" and self._voice_trigger_active:
+                self._stop_voice_recording()
+                return True
+            return False
+        if event.key != " " or not self._voice_meta_held:
+            return False
+        if event.event_type == "press":
+            if not self._voice_trigger_active:
+                result = self.voice.start()
+                self._set_voice_notice(result.message)
+                self._voice_trigger_active = result.ok and result.message == "recording"
+            self.command_mode_deadline = 0.0
+            return True
+        if event.event_type == "release" and self._voice_trigger_active:
+            self._stop_voice_recording()
+            return True
+        return True
+
+    def _stop_voice_recording(self) -> None:
+        result = self.voice.stop()
+        self._voice_trigger_active = False
+        self._set_voice_notice(result.message)
+
+    def _handle_voice_result(self, result: VoiceResult) -> None:
+        if not result.ok:
+            self._set_voice_notice(result.message)
+            return
+        if result.text and self._insert_voice_text(result.text):
+            self._set_voice_notice("voice inserted")
+            return
+        self._set_voice_notice("no focused text target")
+
+    def _insert_voice_text(self, text: str) -> bool:
+        if self.active_screen_name == "term":
+            self.tmux.paste_text(text)
+            return True
+        return False
+
+    def _set_voice_notice(self, message: str) -> None:
+        self._voice_notice = message
+        self._voice_notice_until = time.monotonic() + 2.0
+        self.needs_redraw = True
+
     @property
     def command_mode_active(self) -> bool:
         return time.monotonic() < self.command_mode_deadline
+
+    def _active_screen_accepts_key_release(self) -> bool:
+        if self.active_screen_name != "emu":
+            return False
+        return getattr(self.active_screen, "mode", None) == "run"
 
     def _handle_command_mode_key(self, event: KeyboardEvent) -> bool:
         self.command_mode_deadline = 0.0
@@ -295,6 +360,9 @@ class AltoidsApp:
             return True
         if event.key == "g":
             self.set_screen("game")
+            return True
+        if event.key == "v":
+            self.set_screen("emu")
             return True
         if event.key == "r":
             self.set_screen("tinscope")
@@ -450,9 +518,11 @@ class AltoidsApp:
                     ("jump to help page", "Help: 1-7"),
                     ("prev/next help page", "Help: Left/Right"),
                     ("scroll help page", "Help: Up/Down"),
+                    ("voice dictation", "Hold CMD+Space"),
                     ("help", "CMD+H"),
                     ("home", "CMD+Q"),
                     ("game", "CMD+G"),
+                    ("emulator", "CMD+V"),
                     ("terminal", "CMD+W"),
                     ("system", "CMD+E"),
                     ("tinscope", "CMD+R"),
@@ -486,6 +556,22 @@ class AltoidsApp:
                     ("rotate tile", "MAGI Space"),
                     ("restart active game", "R"),
                     ("game menu", "Q / Esc"),
+                ],
+            ),
+            HelpPage(
+                title="EMU",
+                rows=[
+                    ("open emulator", "CMD+V"),
+                    ("select cart", "Up/Down"),
+                    ("run cart", "Enter / X"),
+                    ("cart details", "Space / Tab / Y"),
+                    ("scroll details", "Details: A/B"),
+                    ("details back", "Details: Q/Esc/Y"),
+                    ("refresh rom list", "R"),
+                    ("chip8 keys", "Run: 0-9 and A-F"),
+                    ("button controls", "Run: A/B/X"),
+                    ("return to carts", "Run: hold Esc / long Y"),
+                    ("home", "Picker: Q / Esc / Y"),
                 ],
             ),
             HelpPage(
@@ -656,6 +742,7 @@ class AltoidsApp:
             "game": "GAME",
             "sync_deflect": "GAME",
             "magi_route": "GAME",
+            "emu": "EMU",
             "tinscope": "TINSCOPE",
             "system": "SYSTEM",
             "system:accents": "ACCENTS",
@@ -717,6 +804,22 @@ class AltoidsApp:
             draw_label(self.draw, left + 188, row_y, combo, self.font, DIM)
             row_y += 20
 
+    def _render_voice_overlay(self) -> None:
+        now = time.monotonic()
+        status = self.voice.status
+        if status in {"recording", "transcribing"}:
+            label = f"VOICE {status.upper()}"
+        elif self._voice_notice and now < self._voice_notice_until:
+            label = f"VOICE {self._voice_notice.upper()}"
+        else:
+            return
+        width = self.config.display.width
+        x0 = 10
+        y0 = 10 if not self.command_mode_active else 34
+        x1 = min(width - 10, x0 + 10 + len(label) * 7)
+        self.draw.rounded_rectangle((x0, y0, x1, y0 + 20), radius=4, outline=ACCENT, fill=BG)
+        draw_label(self.draw, x0 + 5, y0 + 5, label, self.font, FG)
+
     def render(self) -> None:
         self.draw.rectangle((0, 0, self.config.display.width, self.config.display.height), fill=BG)
         self.active_screen.render(self.draw, self.buffer)
@@ -725,6 +828,7 @@ class AltoidsApp:
             draw_label(self.draw, 268, 13, "CMD", self.font, FG)
         if self.help_visible:
             self._render_help_overlay()
+        self._render_voice_overlay()
         if self.shows_button_bar:
             draw_button_bar(
                 self.draw,
@@ -768,11 +872,16 @@ class AltoidsApp:
                         self.handle_button_event(event)
                     for event in web_events.keyboard_events:
                         self.handle_keyboard_event(event)
+                for result in self.voice.update():
+                    self._handle_voice_result(result)
 
                 if not self.input_render_pending:
                     self.bluetooth_status = self.bluetooth_monitor.poll()
                 if self.command_mode_deadline and not self.command_mode_active:
                     self.command_mode_deadline = 0.0
+                    self.needs_redraw = True
+                if self._voice_notice and time.monotonic() >= self._voice_notice_until:
+                    self._voice_notice = ""
                     self.needs_redraw = True
                 self.needs_redraw |= self.active_screen.update(dt)
                 if self.sleep_manager.update():
@@ -801,6 +910,7 @@ class AltoidsApp:
             self.close()
 
     def close(self) -> None:
+        self.voice.shutdown()
         self.accents.shutdown()
         self.tmux.shutdown()
         self.display.shutdown()
