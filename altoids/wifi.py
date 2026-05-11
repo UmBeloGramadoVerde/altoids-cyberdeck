@@ -102,8 +102,12 @@ class WifiManager:
         if not allow_refresh:
             return self._cached_networks
 
-        self._run("device", "wifi", "rescan")
-        proc = self._run("-m", "multiline", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "device", "wifi", "list")
+        list_args = ["-m", "multiline", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "device", "wifi", "list"]
+        if force:
+            list_args.extend(["--rescan", "yes"])
+        else:
+            self._run("device", "wifi", "rescan")
+        proc = self._run(*list_args)
         if proc.returncode != 0:
             self._last_message = "wifi scan failed"
             return self._cached_networks
