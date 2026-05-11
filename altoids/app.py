@@ -203,11 +203,6 @@ class AltoidsApp:
         self.needs_redraw = True
         self.accents.trigger("screen_change")
 
-    def cycle_screen(self, delta: int = 1) -> None:
-        index = self.screen_order.index(self.active_screen_name)
-        self.active_screen_name = self.screen_order[(index + delta) % len(self.screen_order)]
-        self.needs_redraw = True
-
     def handle_button_event(self, event: ButtonEvent) -> None:
         self._mark_input_event()
         if self.sleep_manager.sleeping:
@@ -333,7 +328,7 @@ class AltoidsApp:
         return time.monotonic() < self.command_mode_deadline
 
     def _command_mode_hints(self) -> list[str]:
-        hints = ["Q", "W", "E", "V", "R", "Z", "X"]
+        hints = ["Q", "W", "E", "V", "R"]
         if self.active_screen_name == "term":
             hints.extend(["A", "S", "D", "F", "0-9"])
         elif self.active_screen_name == "system":
@@ -385,12 +380,6 @@ class AltoidsApp:
             return True
         if event.key == "f":
             self.tmux.close_active_window()
-            return True
-        if event.key == "z":
-            self.cycle_screen(-1)
-            return True
-        if event.key == "x":
-            self.cycle_screen(1)
             return True
         return False
 
@@ -528,7 +517,6 @@ class AltoidsApp:
                     ("terminal", "CMD+W"),
                     ("system", "CMD+E"),
                     ("tinscope", "CMD+R"),
-                    ("prev/next screen", "CMD+Z/X"),
                 ],
             ),
             HelpPage(
