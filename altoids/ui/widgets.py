@@ -103,6 +103,42 @@ def draw_segmented_bar(
         draw.rectangle((left, y, right, y + 6), outline=DIM, fill=fill)
 
 
+def draw_detail_frame(
+    draw: ImageDraw.ImageDraw,
+    width: int,
+    height: int,
+    *,
+    title: str,
+    font: ImageFont.ImageFont,
+    color: str = ACCENT,
+    footer_height: int = 24,
+) -> tuple[int, int, int, int]:
+    """Full-screen detail panel. Returns content bounds (left, top, right, bottom)."""
+    draw_label(draw, 12, 6, f"{title} // DETAIL", font, color)
+    draw_separator(draw, 20, width)
+    content_top = 24
+    content_bottom = height - footer_height - 6
+    bounds = (8, content_top, width - 8, content_bottom)
+    draw.rounded_rectangle(bounds, radius=6, outline=color, fill=SURFACE_PANEL)
+    draw_corner_ticks(draw, bounds, color=color, length=6)
+    draw_scanlines(draw, bounds, step=8, color=SURFACE_GRID)
+    return (14, content_top + 8, width - 14, content_bottom - 8)
+
+
+def draw_dot_grid(
+    draw: ImageDraw.ImageDraw,
+    bounds: tuple[int, int, int, int],
+    *,
+    step: int = 8,
+    color: str = SURFACE_GRID,
+) -> None:
+    """VFD-style dot pattern background."""
+    left, top, right, bottom = bounds
+    for y in range(top + 4, bottom - 2, step):
+        for x in range(left + 4, right - 2, step):
+            draw.point((x, y), fill=color)
+
+
 def draw_button_bar(draw: ImageDraw.ImageDraw, width: int, height: int, hints: list[str], font: ImageFont.ImageFont) -> None:
     top = height - BUTTON_BAR_HEIGHT
     draw.rectangle((0, top, width, height), fill=SURFACE_ALT)

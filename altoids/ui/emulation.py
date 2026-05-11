@@ -9,10 +9,10 @@ from typing import Any
 from PIL import Image, ImageDraw
 
 from ..chip8 import Chip8, Chip8Error
-from ..colors import ACCENT, BG, COOL, DANGER, DIM, FG, INFO, SURFACE_GRID, SURFACE_INSET, WARN
+from ..colors import ACCENT, BG, COOL, DANGER, DIM, FG, INFO, SURFACE_GRID, SURFACE_INSET, SURFACE_PANEL, WARN
 from ..input_keyboard import KeyboardEvent
 from .base import Screen, ScreenContext
-from .widgets import draw_label, draw_scanlines
+from .widgets import draw_corner_ticks, draw_dot_grid, draw_label, draw_panel, draw_scanlines
 
 
 SMOKE_CART = bytes.fromhex(
@@ -175,9 +175,9 @@ class EmulationScreen(Screen):
         draw.rectangle((0, 0, width, height), fill=BG)
         draw.rectangle((8, 8, width - 8, height - 8), outline=SURFACE_INSET)
         draw.rectangle((12, 12, width - 12, height - 12), outline=SURFACE_GRID)
-        draw_scanlines(draw, (12, 12, width - 12, height - 12), step=7, color=SURFACE_GRID)
-        draw_label(draw, 16, 13, "EMU BAY // CHIP-8", app.font, ACCENT)
-        draw_label(draw, width - 62, 13, "64x32", app.font, WARN)
+        draw_dot_grid(draw, (12, 12, width - 12, height - 12), step=8, color=SURFACE_GRID)
+        draw_label(draw, 16, 13, "EMU BAY // CHIP-8", app.font, WARN)
+        draw_label(draw, width - 68, 13, "VFD DIAG", app.font, DIM)
         draw.line((16, 32, width - 16, 32), fill=SURFACE_INSET)
 
     def _render_selector(self, draw: ImageDraw.ImageDraw) -> None:
@@ -201,17 +201,21 @@ class EmulationScreen(Screen):
             index = start + offset
             top = row_top + offset * (row_height + 4)
             selected = index == self.selection
-            outline = ACCENT if selected else SURFACE_INSET
-            fill = "#0C1612" if selected else BG
-            draw.rectangle((22, top, width - 22, top + row_height), outline=outline, fill=fill)
+            outline = ACCENT if selected else DIM
+            fill = SURFACE_PANEL if selected else BG
+            cart_bounds = (22, top, width - 22, top + row_height)
+            draw.rounded_rectangle(cart_bounds, radius=4, outline=outline, fill=fill)
+            if selected:
+                draw.rounded_rectangle((24, top + 2, width - 24, top + row_height - 2), radius=3, outline=DIM, fill=None)
             if selected and self.blink < 0.55:
-                draw.rectangle((29, top + 9, 36, top + 16), fill=outline)
+                # Segmented bar cursor instead of filled rect
+                draw_scanlines(draw, (29, top + 9, 38, top + 16), step=3, color=ACCENT)
             draw_label(draw, 44, top + 5, self._trim(cart.title, 24), app.font, FG if selected else DIM)
             draw_label(draw, width - 63, top + 5, f"{index + 1:02}", app.font, outline)
 
-        draw_label(draw, 18, height - 25, "UP/DOWN SELECT", app.font, DIM)
-        draw_label(draw, 120, height - 25, "ENTER RUN", app.font, DIM)
-        draw_label(draw, width - 64, height - 25, "Y INFO", app.font, DIM)
+        draw_label(draw, 18, height - 25, "UP/DOWN SELECT", app.font, WARN)
+        draw_label(draw, 120, height - 25, "ENTER RUN", app.font, WARN)
+        draw_label(draw, width - 64, height - 25, "Y INFO", app.font, WARN)
 
     def _render_detail(self, draw: ImageDraw.ImageDraw) -> None:
         app = self.context.app
@@ -223,13 +227,17 @@ class EmulationScreen(Screen):
         max_scroll = max(0, len(notes) - visible_count)
         self.detail_scroll = min(self.detail_scroll, max_scroll)
 
-        draw.rectangle((18, 40, width - 18, height - 34), outline=ACCENT, fill="#0B100F")
+        detail_bounds = (18, 40, width - 18, height - 34)
+        draw_panel(draw, detail_bounds, title="CART", title_font=app.font, outline=ACCENT, title_color=WARN)
         draw.rectangle((24, 48, width - 24, 78), outline=SURFACE_INSET, fill=BG)
-        draw_label(draw, 30, 51, self._trim(cart.title, 29), app.font, FG)
+        draw_label(draw, 30, 51, self._trim(cart.title, 29), app.font, WARN)
         platform = str((cart.metadata or {}).get("platform", "chip8")).upper()
         draw_label(draw, 30, 65, f"{len(cart.data)} bytes // {platform}", app.font, INFO)
         note_label = "JSON" if cart.metadata else ("TXT" if cart.notes else "NO NOTES")
         draw_label(draw, width - 96, 65, note_label, app.font, WARN if cart.notes else DIM)
+
+        notes_bounds = (24, 82, width - 30, height - 42)
+        draw_dot_grid(draw, notes_bounds, step=10, color=SURFACE_GRID)
 
         y = 89
         for line in notes[self.detail_scroll : self.detail_scroll + visible_count]:
@@ -243,9 +251,9 @@ class EmulationScreen(Screen):
             draw.rectangle((width - 27, bar_top, width - 24, bar_bottom), outline=SURFACE_INSET)
             draw.rectangle((width - 27, thumb_top, width - 24, thumb_top + thumb_height), fill=ACCENT)
 
-        draw_label(draw, 18, height - 25, "A/B SCROLL", app.font, DIM)
-        draw_label(draw, 106, height - 25, "X RUN", app.font, DIM)
-        draw_label(draw, width - 66, height - 25, "Y BACK", app.font, DIM)
+        draw_label(draw, 18, height - 25, "A/B SCROLL", app.font, WARN)
+        draw_label(draw, 106, height - 25, "X RUN", app.font, WARN)
+        draw_label(draw, width - 66, height - 25, "Y BACK", app.font, WARN)
 
     def _render_running(self, draw: ImageDraw.ImageDraw, buffer: Image.Image) -> None:
         app = self.context.app
@@ -259,18 +267,21 @@ class EmulationScreen(Screen):
         screen_width, screen_height = image.size
         screen_left = 12 + (256 - screen_width) // 2
         buffer.paste(image, (screen_left, screen_top))
-        draw.rectangle(
-            (screen_left - 1, screen_top - 1, screen_left + screen_width, screen_top + screen_height),
-            outline=COOL,
-        )
+        # Double outline for CRT depth
+        inner_bounds = (screen_left - 1, screen_top - 1, screen_left + screen_width, screen_top + screen_height)
+        outer_bounds = (screen_left - 3, screen_top - 3, screen_left + screen_width + 2, screen_top + screen_height + 2)
+        draw.rectangle(outer_bounds, outline=DIM)
+        draw.rectangle(inner_bounds, outline=COOL)
+        draw_corner_ticks(draw, outer_bounds, color=COOL, length=6)
         draw_scanlines(draw, (screen_left, screen_top, screen_left + screen_width, screen_top + screen_height), step=8, color="#07120E")
-        draw_label(draw, 18, 176, self._trim(self.loaded_title, 18), app.font, FG)
+        draw_label(draw, 18, 176, self._trim(self.loaded_title, 18), app.font, WARN)
         draw_label(draw, 18, 193, "HOLD ESC CARTS", app.font, DIM)
         draw_label(draw, 104, 193, "0-9 + A-F DIRECT", app.font, INFO)
         if self.run_notice and time.monotonic() < self.run_notice_until:
             draw_label(draw, 18, 211, self.run_notice, app.font, WARN)
         if self.chip8.sound_timer > 0:
-            draw_label(draw, width - 68, 176, "BEEP", app.font, WARN)
+            beep_color = WARN if self.blink < 0.5 else DIM
+            draw_label(draw, width - 68, 176, "BEEP", app.font, beep_color)
         draw_label(draw, width - 78, height - 25, "LONG Y CARTS", app.font, DIM)
 
     def on_button(self, button: str, long_press: bool) -> bool:

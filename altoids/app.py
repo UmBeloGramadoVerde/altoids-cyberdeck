@@ -29,7 +29,7 @@ from .terminal import TmuxManager
 from .voice import VoiceManager, VoiceResult
 from .wifi import WifiManager
 from .webviewer import WebViewer
-from .ui import EmulationScreen, GameSelectScreen, HomeScreen, MagiRouteScreen, Screen, ScreenContext, SyncDeflectScreen, SystemScreen, TerminalScreen, TinScopeScreen
+from .ui import EmulationScreen, HomeScreen, Screen, ScreenContext, SystemScreen, TerminalScreen, TinScopeScreen
 from .ui.widgets import draw_label
 from .ui.widgets import draw_button_bar
 
@@ -130,15 +130,12 @@ class AltoidsApp:
         self.sleep_manager = SleepManager(config.sleep.idle_seconds)
         self.accents = AccentManager(self.display, config.audio, config.led)
         self.voice = VoiceManager(config.voice, enabled=config.voice.enabled and self.display.is_whisplay)
-        self.screen_order = ["home", "tinscope", "game", "emu", "term", "system"]
+        self.screen_order = ["home", "tinscope", "emu", "term", "system"]
         context = ScreenContext(app=self)
         self.screens: dict[str, Screen] = {
             "home": HomeScreen(context),
             "tinscope": TinScopeScreen(context),
-            "game": GameSelectScreen(context),
             "emu": EmulationScreen(context),
-            "sync_deflect": SyncDeflectScreen(context),
-            "magi_route": MagiRouteScreen(context),
             "term": TerminalScreen(context),
             "system": SystemScreen(context),
         }
@@ -335,6 +332,16 @@ class AltoidsApp:
     def command_mode_active(self) -> bool:
         return time.monotonic() < self.command_mode_deadline
 
+    def _command_mode_hints(self) -> list[str]:
+        hints = ["Q", "W", "E", "V", "R", "Z", "X"]
+        if self.active_screen_name == "term":
+            hints.extend(["A", "S", "D", "F", "0-9"])
+        elif self.active_screen_name == "system":
+            hints.append("G")
+        elif self.active_screen_name == "emu":
+            hints.append("G")
+        return hints
+
     def _active_screen_accepts_key_release(self) -> bool:
         if self.active_screen_name != "emu":
             return False
@@ -359,7 +366,7 @@ class AltoidsApp:
             self.set_screen("system")
             return True
         if event.key == "g":
-            self.set_screen("game")
+            self.set_screen("emu")
             return True
         if event.key == "v":
             self.set_screen("emu")
@@ -379,10 +386,6 @@ class AltoidsApp:
         if event.key == "f":
             self.tmux.close_active_window()
             return True
-        if self.active_screen_name == "system":
-            system_screen = self.screens["system"]
-            if event.key == "c":
-                return system_screen.on_button("Y", False)
         if event.key == "z":
             self.cycle_screen(-1)
             return True
@@ -515,14 +518,13 @@ class AltoidsApp:
                     ("toggle help", "F1"),
                     ("toggle help", "Ctrl+H"),
                     ("toggle help", "Ctrl+/"),
-                    ("jump to help page", "Help: 1-7"),
+                    ("jump to help page", "Help: 1-5"),
                     ("prev/next help page", "Help: Left/Right"),
                     ("scroll help page", "Help: Up/Down"),
                     ("voice dictation", "Hold CMD+Space"),
                     ("help", "CMD+H"),
                     ("home", "CMD+Q"),
-                    ("game", "CMD+G"),
-                    ("emulator", "CMD+V"),
+                    ("emulator", "CMD+G / CMD+V"),
                     ("terminal", "CMD+W"),
                     ("system", "CMD+E"),
                     ("tinscope", "CMD+R"),
@@ -544,24 +546,9 @@ class AltoidsApp:
                 ],
             ),
             HelpPage(
-                title="GAME",
-                rows=[
-                    ("open picker", "CMD+G"),
-                    ("select game", "Picker Up/Down"),
-                    ("quick launch", "Picker 1/2"),
-                    ("load game", "Picker Space"),
-                    ("start / deflect", "SYNC Space"),
-                    ("move field", "SYNC W/S"),
-                    ("move cursor", "MAGI arrows"),
-                    ("rotate tile", "MAGI Space"),
-                    ("restart active game", "R"),
-                    ("game menu", "Q / Esc"),
-                ],
-            ),
-            HelpPage(
                 title="EMU",
                 rows=[
-                    ("open emulator", "CMD+V"),
+                    ("open emulator", "CMD+G / CMD+V"),
                     ("select cart", "Up/Down"),
                     ("run cart", "Enter / X"),
                     ("cart details", "Space / Tab / Y"),
@@ -595,59 +582,22 @@ class AltoidsApp:
             HelpPage(
                 title="SYSTEM",
                 rows=[
-                    ("prev/next subpage", "A/B"),
-                    ("wifi setup", "Y / CMD+C"),
-                    ("pick network", "WiFi: A/B"),
-                    ("scan nearby", "WiFi: X / R"),
-                    ("join selected", "WiFi: Y / Enter"),
-                    ("close setup", "WiFi: Esc"),
-                    ("type password", "Pass: text"),
-                    ("join", "Pass: Enter"),
-                    ("delete", "Pass: Backspace"),
-                    ("cancel", "Pass: Esc"),
-                    ("prev/next help page", "Help: A/B"),
-                    ("close help", "Help: Esc"),
-                ],
-            ),
-            HelpPage(
-                title="CDX",
-                rows=[
-                    ("switch feed/composer", "Tab"),
-                    ("pick feed item", "Up/Down"),
-                    ("pick feed item", "Ctrl+P/N"),
-                    ("jump feed", "Ctrl+U/D"),
-                    ("first/last feed item", "Home/End"),
-                    ("open selected item", "Feed: Enter"),
-                    ("composer keeps focus", "Type + Up/Down"),
-                    ("send composer", "Enter"),
-                    ("clear composer; quit if empty", "Esc"),
-                    ("move composer cursor", "Left/Right"),
-                    ("start/end composer", "Home/End"),
-                    ("edit composer", "Backspace/Delete"),
-                    ("reader prev/next msg", "Up/Down"),
-                    ("reader scroll line", "Ctrl+P/N"),
-                    ("reader scroll page", "Ctrl+U/D"),
-                    ("reader start/end", "Home/End"),
-                    ("reader close", "Enter/Esc"),
-                    ("refresh recent threads", "Ctrl+L"),
-                    ("yes", "Approval: 1"),
-                    ("yes for session", "Approval: 2"),
-                    ("no", "Approval: 3"),
-                    ("no with redirect", "Approval: 4"),
-                    ("choose thread", "Startup Up/Down"),
-                    ("open selection", "Startup Enter"),
-                    ("quit picker", "Startup Q"),
-                ],
-            ),
-            HelpPage(
-                title="ACCENTS",
-                rows=[
-                    ("volume - / +", "A / B"),
-                    ("toggle mute", "X"),
-                    ("toggle led pulses", "Y"),
-                    ("features gated", "Whisplay only"),
-                    ("audio/led off", "Sleep"),
-                    ("restore + cue", "Wake"),
+                    ("expand core panel", "C"),
+                    ("expand load panel", "O"),
+                    ("expand link panel", "L"),
+                    ("expand wireless", "W"),
+                    ("expand rig panel", "R"),
+                    ("expand cues panel", "U"),
+                    ("back to overview", "Detail: Esc"),
+                    ("wifi pick network", "Wireless: Up/Down"),
+                    ("wifi scan", "Wireless: R"),
+                    ("wifi join", "Wireless: Enter"),
+                    ("wifi password", "Pass: text keys"),
+                    ("password join", "Pass: Enter"),
+                    ("password cancel", "Pass: Esc"),
+                    ("volume +/-", "Cues: Up/Down +/-"),
+                    ("toggle mute", "Cues: M"),
+                    ("toggle led", "Cues: L"),
                 ],
             ),
         ]
@@ -728,24 +678,15 @@ class AltoidsApp:
         return self._contextual_help_page_index()
 
     def _help_context_key(self) -> str:
-        if self.active_screen_name == "system":
-            system_screen = self.screens["system"]
-            page_name = getattr(system_screen, "page_name", None)
-            if page_name == "accents":
-                return "system:accents"
         return self.active_screen_name
 
     def _contextual_help_page_index(self) -> int:
         page_title = {
             "home": "GLOBAL",
             "term": "TMUX",
-            "game": "GAME",
-            "sync_deflect": "GAME",
-            "magi_route": "GAME",
             "emu": "EMU",
             "tinscope": "TINSCOPE",
             "system": "SYSTEM",
-            "system:accents": "ACCENTS",
         }.get(self._help_context_key(), "GLOBAL")
         for index, page in enumerate(self.help_pages):
             if page.title == page_title:
@@ -824,8 +765,14 @@ class AltoidsApp:
         self.draw.rectangle((0, 0, self.config.display.width, self.config.display.height), fill=BG)
         self.active_screen.render(self.draw, self.buffer)
         if self.command_mode_active:
-            self.draw.rounded_rectangle((256, 8, 312, 28), radius=4, outline=ACCENT, fill=BG)
-            draw_label(self.draw, 268, 13, "CMD", self.font, FG)
+            hints = self._command_mode_hints()
+            hint_text = " ".join(hints)
+            hint_width = min(len(hint_text) * 7 + 10, 220)
+            self.draw.rounded_rectangle((6, 6, hint_width, 26), radius=4, outline=DIM, fill=BG)
+            draw_label(self.draw, 12, 11, hint_text, self.font, DIM)
+            cmd_left = hint_width + 4
+            self.draw.rounded_rectangle((cmd_left, 6, cmd_left + 48, 26), radius=4, outline=ACCENT, fill=BG)
+            draw_label(self.draw, cmd_left + 8, 11, "CMD", self.font, FG)
         if self.help_visible:
             self._render_help_overlay()
         self._render_voice_overlay()
