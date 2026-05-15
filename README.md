@@ -99,7 +99,7 @@ Current controls:
 - `X`: open terminal
 - `Y`: open system screen
 
-Global keyboard help is available from any screen with `F1`, `Ctrl+H`, `Ctrl+/`, or `CMD+H`. The overlay opens to the current screen's help page unless that screen already has a remembered help page. Use `1`..`6` to jump directly to a help page, `Left` / `Right`, `Up` / `Down`, `Tab`, or `Space` to switch pages, and `Esc`, `Enter`, `F1`, `Ctrl+H`, `Ctrl+/`, or `H` to close it.
+Global keyboard help is available from any screen with `F1`, `Ctrl+H`, `Ctrl+/`, or `CMD+H`. The overlay opens to the current screen's help page unless that screen already has a remembered help page. Use `1`..`5` to jump directly to a help page, `Left` / `Right`, `Up` / `Down`, `Tab`, or `Space` to switch pages, and `Esc`, `Enter`, `F1`, `Ctrl+H`, `Ctrl+/`, or `H` to close it.
 
 ### Terminal
 
@@ -134,12 +134,11 @@ Keyboard behavior on the terminal screen:
 - `Ctrl+Home` / `Ctrl+End`: jump to the oldest captured lines or back to live output
 - `Ctrl` + letter chords such as `Ctrl+C` are forwarded into tmux
 - `F1`, `Ctrl+H`, `Ctrl+/`, or `CMD+H`: open keyboard shortcut help
-- `CMD+A` / `CMD+S`: previous / next tmux window
+- `CMD+[` / `CMD+]`: previous / next tmux window
 - `CMD+1`..`CMD+9`: jump to tmux windows 1 through 9
 - `CMD+0`: jump to tmux window 10
-- `CMD+D` / `CMD+F`: create / close tmux window
-- `CMD+Q` / `CMD+W` / `CMD+E`: jump to home / terminal / system
-- `CMD+Z` / `CMD+X`: previous / next app screen
+- `CMD+N` / `CMD+K`: create / close tmux window
+- `CMD+Q` / `CMD+T` / `CMD+S` / `CMD+G` / `CMD+R`: jump to home / terminal / system-settings / games / TinScope
 
 Note: the plan called for `pyte`-based ANSI rendering, but the current code strips ANSI sequences and renders plain text via [altoids/renderer.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/renderer.py:1). That is a deliberate simplification for the first pass.
 
@@ -265,27 +264,29 @@ Related config files:
 
 PiSugar's installer edits `/boot/firmware/config.txt`, updates `/etc/modules`, installs `wm8960-soundcard.service`, and recommends a reboot after setup so ALSA re-enumerates the `wm8960soundcard` device cleanly.
 
-## Safe Reload Flow
+## Update Flow
 
-The service now runs behind a stable supervisor entrypoint instead of launching `python -m altoids` directly. Releases are staged into versioned directories under `/opt/altoids/releases`, then promoted only after the new build passes a self-test and survives a short health window.
+The service launches `python -m altoids` directly from `/opt/altoids/current`. Releases are staged into versioned directories under `/opt/altoids/releases`; promotion is a direct symlink update followed by a systemd restart.
 
 The intended operator flow from the tmux shell is through the repo `Makefile`:
 
 - `make stage`: copy the current checkout into a new staged release
-- `make reload`: ask the supervisor to switch to that staged release
-- `make update`: refresh the stable tmux config, re-source it into the running tmux server, then run a local self-test, stage the current checkout, reload it, and print status
-- `make rollback`: switch back to the previous known-good release when you have an operator path to trigger it
-- `make status`: show the active, previous, and staged release plus the last reload result
+- `make activate`: self-test the staged release and point `/opt/altoids/current` at it
+- `make restart-staged`: activate the staged release, restart `altoids.service`, and verify the service is active
+- `make reload`: compatibility alias for `make restart-staged`
+- `make update`: refresh the stable tmux config, re-source it into the running tmux server, stage the current checkout, activate the staged release, restart the service, verify the service is active, and print status
+- `make rollback`: point `/opt/altoids/current` back to the previous release, restart `altoids.service`, and verify the service is active
+- `make status`: show the active, previous, and staged release plus the last runtime result
 - `make tmux-sync`: install `config/tmux.conf` to `/opt/altoids/runtime/tmux.conf`, point `/etc/tmux.conf` and `~/.tmux.conf` at it, then re-source it into the running tmux server
 - `make tmux-apply`: re-source `/opt/altoids/runtime/tmux.conf` into the running tmux server
 - `make tmux-install-user`: point `~/.tmux.conf` at `/opt/altoids/runtime/tmux.conf`
 - `make tmux-install-system`: point `/etc/tmux.conf` at `/opt/altoids/runtime/tmux.conf`
 
-The important behavior is that reloads are now explicit, staged operations rather than "quick save / quick load" shortcuts. That keeps the process focused on preparing a candidate build, validating it, and only then asking the supervisor to cut over.
+The important behavior is that reloads are explicit, staged operations rather than "quick save / quick load" shortcuts. That keeps the process focused on preparing a candidate build, validating it, promoting it, and restarting the service.
 
 Tmux is intentionally handled through one stable path outside the staged release directories. That avoids the old problem where tmux was reading one file while the repo was changing another. The repo copy stays at `config/tmux.conf`, while the live path is `/opt/altoids/runtime/tmux.conf`.
 
-The app now also supports `python -m altoids --self-test`, which initializes the UI stack, renders one frame, and exits non-zero on startup failure. The supervisor uses this with a JSON health file under `/run/altoids/health.json` to decide whether a candidate release is safe to keep running.
+The app also supports `python -m altoids --self-test`, which initializes the UI stack, renders one frame, and exits non-zero on startup failure.
 
 The original plan also called for overlayfs and a writable tmux state area for better power-loss tolerance. Those operational steps are not yet fully automated in this repository.
 

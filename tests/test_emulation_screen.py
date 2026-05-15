@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 import tempfile
+import time
 import unittest
 
-from PIL import ImageFont
+from PIL import Image, ImageFont
 
 from altoids.input_keyboard import KeyboardEvent
 from altoids.ui.base import ScreenContext
@@ -55,6 +56,9 @@ class EmulationScreenTest(unittest.TestCase):
                 roms = archive / "roms"
                 roms.mkdir(parents=True)
                 (roms / "garden.ch8").write_bytes(bytes.fromhex("00E0 1200"))
+                src = archive / "src" / "garden"
+                src.mkdir(parents=True)
+                Image.new("RGB", (64, 32), "white").save(src / "garden.gif")
                 (archive / "authors.json").write_text(
                     json.dumps({"JaneDev": {"url": "https://example.test/jane"}}),
                     encoding="utf-8",
@@ -65,6 +69,7 @@ class EmulationScreenTest(unittest.TestCase):
                             "garden": {
                                 "title": "Ordinary Idle Garden",
                                 "authors": ["JaneDev"],
+                                "images": ["garden.gif"],
                                 "desc": "A calm plant simulation.",
                                 "event": "Octojam",
                                 "release": "2020-01-02",
@@ -82,6 +87,7 @@ class EmulationScreenTest(unittest.TestCase):
 
                 self.assertEqual(cart.title, "ORDINARY IDLE GARDEN")
                 self.assertEqual(cart.notes, "A calm plant simulation.")
+                self.assertEqual(cart.preview_path, src / "garden.gif")
                 self.assertTrue(any("JaneDev" in line for line in lines))
                 self.assertTrue(any("30hz" in line for line in lines))
             finally:
@@ -132,57 +138,77 @@ class EmulationScreenTest(unittest.TestCase):
             finally:
                 EmulationScreen.rom_dir = previous
 
-    def test_run_mode_q_is_ignored_not_exit_or_gameplay(self) -> None:
+    def test_run_mode_uses_standard_qwerty_chip8_grid(self) -> None:
         screen = self.make_screen()
         screen._load_selection()
 
-        handled = screen.on_keyboard_event(KeyboardEvent(key="q", raw_key="KEY_Q"))
+        expected = {
+            "1": 0x1,
+            "2": 0x2,
+            "3": 0x3,
+            "4": 0xC,
+            "q": 0x4,
+            "w": 0x5,
+            "e": 0x6,
+            "r": 0xD,
+            "a": 0x7,
+            "s": 0x8,
+            "d": 0x9,
+            "f": 0xE,
+            "z": 0xA,
+            "x": 0x0,
+            "c": 0xB,
+            "v": 0xF,
+        }
+        for key, chip8_key in expected.items():
+            with self.subTest(key=key):
+                screen._clear_keys()
+                handled = screen.on_keyboard_event(KeyboardEvent(key=key, raw_key=f"KEY_{key.upper()}"))
 
-        self.assertTrue(handled)
-        self.assertEqual(screen.mode, "run")
-        self.assertFalse(any(screen.chip8.keys))
+                self.assertTrue(handled)
+                self.assertEqual(screen.mode, "run")
+                self.assertTrue(screen.chip8.keys[chip8_key])
 
-    def test_run_mode_uses_direct_hex_keys(self) -> None:
+    def test_run_mode_uses_shift_hex_fallback(self) -> None:
         screen = self.make_screen()
         screen._load_selection()
 
-        screen.on_keyboard_event(KeyboardEvent(key="7", raw_key="KEY_7"))
-        screen.on_keyboard_event(KeyboardEvent(key="a", raw_key="KEY_A"))
+        screen.on_keyboard_event(KeyboardEvent(key="7", raw_key="KEY_7", shift=True))
+        screen.on_keyboard_event(KeyboardEvent(key="a", raw_key="KEY_A", text="A", shift=True))
+        screen.on_keyboard_event(KeyboardEvent(key="$", raw_key="Digit4", text="$", shift=True))
 
         self.assertTrue(screen.chip8.keys[0x7])
         self.assertTrue(screen.chip8.keys[0xA])
+        self.assertTrue(screen.chip8.keys[0x4])
 
-    def test_chicken_scratch_space_maps_to_center_key(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            previous = EmulationScreen.rom_dir
-            try:
-                EmulationScreen.rom_dir = previous.__class__(temp_dir)
-                archive = EmulationScreen.rom_dir / "archive"
-                roms = archive / "roms"
-                roms.mkdir(parents=True)
-                (roms / "chickenScratch.ch8").write_bytes(bytes.fromhex("00E0 1200"))
-                (archive / "authors.json").write_text("{}", encoding="utf-8")
-                (archive / "programs.json").write_text(
-                    json.dumps({"chickenScratch": {"title": "Chicken Scratch", "authors": [], "platform": "xochip"}}),
-                    encoding="utf-8",
-                )
-                screen = self.make_screen()
-                screen.selection = 1
-                screen._load_selection()
+    def test_run_mode_uses_numpad_digits_as_direct_hex_fallback(self) -> None:
+        screen = self.make_screen()
+        screen._load_selection()
 
-                screen.on_keyboard_event(KeyboardEvent(key=" ", raw_key="KEY_SPACE", text=" "))
+        screen.on_keyboard_event(KeyboardEvent(key="4", raw_key="KEY_KP4"))
 
-                self.assertTrue(screen.chip8.keys[0x5])
-            finally:
-                EmulationScreen.rom_dir = previous
+        self.assertTrue(screen.chip8.keys[0x4])
 
-    def test_space_is_not_global_gameplay_key(self) -> None:
+    def test_space_maps_to_center_key(self) -> None:
         screen = self.make_screen()
         screen._load_selection()
 
         screen.on_keyboard_event(KeyboardEvent(key=" ", raw_key="KEY_SPACE", text=" "))
+        screen.on_keyboard_event(KeyboardEvent(key="enter", raw_key="KEY_ENTER"))
 
-        self.assertFalse(any(screen.chip8.keys))
+        self.assertTrue(screen.chip8.keys[0x5])
+
+    def test_arrow_keys_map_to_common_chip8_direction_cluster(self) -> None:
+        screen = self.make_screen()
+        screen._load_selection()
+
+        expected = {"up": 0x2, "left": 0x4, "right": 0x6, "down": 0x8}
+        for key, chip8_key in expected.items():
+            with self.subTest(key=key):
+                screen._clear_keys()
+                screen.on_keyboard_event(KeyboardEvent(key=key, raw_key=f"KEY_{key.upper()}"))
+
+                self.assertTrue(screen.chip8.keys[chip8_key])
 
     def test_run_mode_escape_requires_hold(self) -> None:
         screen = self.make_screen()
@@ -195,6 +221,21 @@ class EmulationScreenTest(unittest.TestCase):
         self.assertEqual(screen.mode, "run")
         self.assertIsNone(screen.escape_armed_at)
 
+    def test_run_mode_escape_hold_clears_game_and_suppresses_held_keys(self) -> None:
+        screen = self.make_screen()
+        screen._load_selection()
+        screen.on_keyboard_event(KeyboardEvent(key="w", raw_key="KEY_W"))
+
+        screen.escape_armed_at = time.monotonic() - screen.escape_hold_seconds
+        screen.update(0.01)
+
+        self.assertEqual(screen.mode, "select")
+        self.assertFalse(any(screen.chip8.keys))
+        self.assertTrue(screen.on_keyboard_event(KeyboardEvent(key="w", raw_key="KEY_W")))
+        self.assertEqual(screen.selection, 0)
+        self.assertTrue(screen.on_keyboard_event(KeyboardEvent(key="w", raw_key="KEY_W", event_type="release")))
+        self.assertFalse(screen.suppressed_runtime_key_ids)
+
     def test_run_mode_long_y_returns_to_picker(self) -> None:
         screen = self.make_screen()
         screen._load_selection()
@@ -202,6 +243,16 @@ class EmulationScreenTest(unittest.TestCase):
         self.assertTrue(screen.on_button("Y", True))
 
         self.assertEqual(screen.mode, "select")
+
+    def test_deactivate_stops_running_cart(self) -> None:
+        screen = self.make_screen()
+        screen._load_selection()
+        screen.on_keyboard_event(KeyboardEvent(key="s", raw_key="KEY_S"))
+
+        screen.on_deactivate()
+
+        self.assertEqual(screen.mode, "select")
+        self.assertFalse(any(screen.chip8.keys))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,14 @@
+// Installed by setup.sh with @ALTOIDS_USER@ replaced by the service user.
+polkit.addRule(function(action, subject) {
+    var allowedActions = [
+        "org.freedesktop.NetworkManager.wifi.scan",
+        "org.freedesktop.NetworkManager.network-control",
+        "org.freedesktop.NetworkManager.enable-disable-wifi",
+        "org.freedesktop.NetworkManager.settings.modify.own",
+        "org.freedesktop.NetworkManager.settings.modify.system"
+    ];
+
+    if (subject.user == "@ALTOIDS_USER@" && allowedActions.indexOf(action.id) >= 0) {
+        return polkit.Result.YES;
+    }
+});

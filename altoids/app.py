@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import json
-import os
 import shutil
 import socket
 import time
@@ -46,42 +44,30 @@ class HelpPage:
     rows: list[tuple[str, str]]
 
 
-class HealthReporter:
-    def __init__(self, path: Path, release: str, interval_seconds: float = 1.0) -> None:
-        self.path = path
-        self.release = release
-        self.interval_seconds = interval_seconds
-        self.pid = os.getpid()
-        self.started_at = time.time()
-        self.ready_at: float | None = None
-        self._last_write_at = 0.0
+@dataclass(frozen=True, slots=True)
+class CommandSpec:
+    key: str
+    action: str
+    combo: str
+    kind: str
+    target: str = ""
+    contexts: tuple[str, ...] = ()
+    hint: str = ""
+    help_page: str = "GLOBAL"
 
-    def mark_ready(self) -> None:
-        if self.ready_at is None:
-            self.ready_at = time.time()
-        self._write(force=True)
 
-    def beat(self) -> None:
-        self._write(force=False)
-
-    def _write(self, force: bool) -> None:
-        now = time.monotonic()
-        if not force and now - self._last_write_at < self.interval_seconds:
-            return
-        self._last_write_at = now
-        payload: dict[str, object] = {
-            "pid": self.pid,
-            "release": self.release,
-            "ready": self.ready_at is not None,
-            "started_at": self.started_at,
-            "heartbeat_at": time.time(),
-        }
-        if self.ready_at is not None:
-            payload["ready_at"] = self.ready_at
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        temp_path = self.path.with_name(f".{self.path.name}.{self.pid}.tmp")
-        temp_path.write_text(json.dumps(payload, sort_keys=True))
-        temp_path.replace(self.path)
+COMMAND_SPECS: tuple[CommandSpec, ...] = (
+    CommandSpec("h", "help", "CMD+H", "help", hint="H"),
+    CommandSpec("q", "home", "CMD+Q", "screen", target="home", hint="Q"),
+    CommandSpec("t", "terminal", "CMD+T", "screen", target="term", hint="T"),
+    CommandSpec("s", "system/settings", "CMD+S", "screen", target="system", hint="S"),
+    CommandSpec("g", "games", "CMD+G", "screen", target="emu", hint="G"),
+    CommandSpec("r", "tinscope", "CMD+R", "screen", target="tinscope", hint="R"),
+    CommandSpec("[", "previous tmux window", "CMD+[", "tmux_previous", contexts=("term",), hint="[", help_page="TMUX"),
+    CommandSpec("]", "next tmux window", "CMD+]", "tmux_next", contexts=("term",), hint="]", help_page="TMUX"),
+    CommandSpec("n", "new tmux window", "CMD+N", "tmux_new", contexts=("term",), hint="N", help_page="TMUX"),
+    CommandSpec("k", "close tmux window", "CMD+K", "tmux_close", contexts=("term",), hint="K", help_page="TMUX"),
+)
 
 
 class AltoidsApp:
@@ -199,6 +185,7 @@ class AltoidsApp:
     def set_screen(self, name: str) -> None:
         if name not in self.screens or self.active_screen_name == name:
             return
+        getattr(self.active_screen, "on_deactivate", lambda: None)()
         self.active_screen_name = name
         self.needs_redraw = True
         self.accents.trigger("screen_change")
@@ -328,60 +315,56 @@ class AltoidsApp:
         return time.monotonic() < self.command_mode_deadline
 
     def _command_mode_hints(self) -> list[str]:
-        hints = ["Q", "W", "E", "V", "R"]
+        hints = [spec.hint or spec.key.upper() for spec in self._available_command_specs()]
         if self.active_screen_name == "term":
-            hints.extend(["A", "S", "D", "F", "0-9"])
-        elif self.active_screen_name == "system":
-            hints.append("G")
-        elif self.active_screen_name == "emu":
-            hints.append("G")
+            hints.append("0-9")
         return hints
 
     def _active_screen_accepts_key_release(self) -> bool:
         if self.active_screen_name != "emu":
             return False
-        return getattr(self.active_screen, "mode", None) == "run"
+        return getattr(self.active_screen, "accepts_key_release", lambda: False)()
 
     def _handle_command_mode_key(self, event: KeyboardEvent) -> bool:
         self.command_mode_deadline = 0.0
-        if event.key == "h":
-            self.toggle_help()
-            return True
-        if event.key.isdigit():
+        if self.active_screen_name == "term" and event.key.isdigit():
             target_window = 10 if event.key == "0" else int(event.key)
             self.tmux.select_window(target_window)
             return True
-        if event.key == "q":
-            self.set_screen("home")
+        spec = self._command_spec_for_key(event.key)
+        if spec is None:
+            return False
+        if spec.kind == "help":
+            self.toggle_help()
             return True
-        if event.key == "w":
-            self.set_screen("term")
+        if spec.kind == "screen":
+            self.set_screen(spec.target)
             return True
-        if event.key == "e":
-            self.set_screen("system")
-            return True
-        if event.key == "g":
-            self.set_screen("emu")
-            return True
-        if event.key == "v":
-            self.set_screen("emu")
-            return True
-        if event.key == "r":
-            self.set_screen("tinscope")
-            return True
-        if event.key == "a":
+        if spec.kind == "tmux_previous":
             self.tmux.select_previous_window()
             return True
-        if event.key == "s":
+        if spec.kind == "tmux_next":
             self.tmux.select_next_window()
             return True
-        if event.key == "d":
+        if spec.kind == "tmux_new":
             self.tmux.create_window()
             return True
-        if event.key == "f":
+        if spec.kind == "tmux_close":
             self.tmux.close_active_window()
             return True
         return False
+
+    def _available_command_specs(self) -> list[CommandSpec]:
+        return [
+            spec for spec in COMMAND_SPECS
+            if not spec.contexts or self.active_screen_name in spec.contexts
+        ]
+
+    def _command_spec_for_key(self, key: str) -> CommandSpec | None:
+        for spec in self._available_command_specs():
+            if spec.key == key:
+                return spec
+        return None
 
     @staticmethod
     def _tmux_key_name(key: str) -> str:
@@ -504,28 +487,19 @@ class AltoidsApp:
             HelpPage(
                 title="GLOBAL",
                 rows=[
-                    ("toggle help", "F1"),
-                    ("toggle help", "Ctrl+H"),
-                    ("toggle help", "Ctrl+/"),
+                    ("toggle help", "F1 / Ctrl+H / Ctrl+/"),
                     ("jump to help page", "Help: 1-5"),
                     ("prev/next help page", "Help: Left/Right"),
                     ("scroll help page", "Help: Up/Down"),
                     ("voice dictation", "Hold CMD+Space"),
-                    ("help", "CMD+H"),
-                    ("home", "CMD+Q"),
-                    ("emulator", "CMD+G / CMD+V"),
-                    ("terminal", "CMD+W"),
-                    ("system", "CMD+E"),
-                    ("tinscope", "CMD+R"),
+                    *self._command_help_rows("GLOBAL"),
                 ],
             ),
             HelpPage(
                 title="TMUX",
                 rows=[
                     ("jump tmux window", "CMD+1-0"),
-                    ("prev/next window", "CMD+A/S"),
-                    ("new window", "CMD+D"),
-                    ("close window", "CMD+F"),
+                    *self._command_help_rows("TMUX"),
                     ("scroll terminal", "Ctrl+Up/Down"),
                     ("scrollback", "Up/Down"),
                     ("top/live", "Ctrl+Home/End"),
@@ -536,14 +510,15 @@ class AltoidsApp:
             HelpPage(
                 title="EMU",
                 rows=[
-                    ("open emulator", "CMD+G / CMD+V"),
+                    *self._command_help_rows("EMU"),
                     ("select cart", "Up/Down"),
                     ("run cart", "Enter / X"),
                     ("cart details", "Space / Tab / Y"),
                     ("scroll details", "Details: A/B"),
                     ("details back", "Details: Q/Esc/Y"),
                     ("refresh rom list", "R"),
-                    ("chip8 keys", "Run: 0-9 and A-F"),
+                    ("chip8 keys", "Run: 1234/QWER/ASDF/ZXCV"),
+                    ("chip8 aliases", "Run: arrows, Space/Enter, Shift+hex"),
                     ("button controls", "Run: A/B/X"),
                     ("return to carts", "Run: hold Esc / long Y"),
                     ("home", "Picker: Q / Esc / Y"),
@@ -552,7 +527,7 @@ class AltoidsApp:
             HelpPage(
                 title="TINSCOPE",
                 rows=[
-                    ("open tinscope", "CMD+R"),
+                    *self._command_help_rows("TINSCOPE"),
                     ("start mission", "Enter / X"),
                     ("approve request", "Enter / X"),
                     ("deny request", "Esc"),
@@ -570,13 +545,13 @@ class AltoidsApp:
             HelpPage(
                 title="SYSTEM",
                 rows=[
-                    ("expand core panel", "C"),
-                    ("expand load panel", "O"),
+                    ("expand system panel", "S"),
+                    ("expand perf panel", "P"),
                     ("expand link panel", "L"),
                     ("expand wireless", "W"),
                     ("expand rig panel", "R"),
-                    ("expand cues panel", "U"),
-                    ("back to overview", "Detail: Esc"),
+                    ("expand audio panel", "A"),
+                    ("back to overview", "same key / Esc"),
                     ("wifi pick network", "Wireless: Up/Down"),
                     ("wifi scan", "Wireless: R"),
                     ("wifi join", "Wireless: Enter"),
@@ -588,6 +563,17 @@ class AltoidsApp:
                     ("toggle led", "Cues: L"),
                 ],
             ),
+        ]
+
+    def _command_help_rows(self, page_title: str) -> list[tuple[str, str]]:
+        if page_title == "EMU":
+            return [(spec.action, spec.combo) for spec in COMMAND_SPECS if spec.target == "emu"]
+        if page_title == "TINSCOPE":
+            return [(spec.action, spec.combo) for spec in COMMAND_SPECS if spec.target == "tinscope"]
+        return [
+            (spec.action, spec.combo)
+            for spec in COMMAND_SPECS
+            if spec.help_page == page_title
         ]
 
     def toggle_help(self) -> None:
@@ -755,7 +741,7 @@ class AltoidsApp:
         if self.command_mode_active:
             hints = self._command_mode_hints()
             hint_text = " ".join(hints)
-            hint_width = min(len(hint_text) * 7 + 10, 220)
+            hint_width = min(len(hint_text) * 7 + 10, self.config.display.width - 60)
             self.draw.rounded_rectangle((6, 6, hint_width, 26), radius=4, outline=DIM, fill=BG)
             draw_label(self.draw, 12, 11, hint_text, self.font, DIM)
             cmd_left = hint_width + 4
@@ -788,7 +774,7 @@ class AltoidsApp:
     def input_render_pending(self) -> bool:
         return self._last_input_event_at is not None
 
-    def run(self, max_frames: int | None = None, health_reporter: HealthReporter | None = None) -> int:
+    def run(self, max_frames: int | None = None) -> int:
         frame_count = 0
         last = time.monotonic()
         try:
@@ -826,8 +812,6 @@ class AltoidsApp:
                 if not self.sleep_manager.sleeping and self.needs_redraw:
                     self.render()
                     frame_count += 1
-                    if health_reporter is not None and frame_count == 1:
-                        health_reporter.mark_ready()
                     if not self._boot_accent_fired:
                         self.accents.trigger("boot_complete")
                         self._boot_accent_fired = True
@@ -835,8 +819,6 @@ class AltoidsApp:
                 if max_frames is not None and frame_count >= max_frames:
                     return 0
 
-                if health_reporter is not None:
-                    health_reporter.beat()
                 target_fps = self._active_fps if not self.sleep_manager.sleeping else self.config.display.fps_idle
                 frame_interval = 1.0 / max(1, target_fps)
                 input_poll_interval = max(0.001, self.config.display.input_poll_interval)
@@ -858,7 +840,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", default=None, help="Path to altoids.toml")
     parser.add_argument("--frames", type=int, default=None, help="Render this many frames and exit")
     parser.add_argument("--self-test", action="store_true", help="Initialize the app, render one frame, and exit")
-    parser.add_argument("--health-file", default=None, help="Path to a JSON health/heartbeat file for supervisor use")
     parser.add_argument("--web-viewer", action="store_true", help="Serve the UI over HTTP for browser-based viewing and control")
     parser.add_argument("--web-host", default="127.0.0.1", help="Host/interface for the web viewer")
     parser.add_argument("--web-port", type=int, default=8765, help="Port for the web viewer")
@@ -873,11 +854,7 @@ def main(argv: list[str] | None = None) -> int:
         # Force the mock backend so staged validation doesn't contend with the live app.
         config.display.backend = "mock"
     app = AltoidsApp(config=config, web_viewer=args.web_viewer, web_host=args.web_host, web_port=args.web_port)
-    health_reporter = HealthReporter(
-        Path(args.health_file),
-        os.environ.get("ALTOIDS_RELEASE_ID", "dev"),
-    ) if args.health_file else None
     if app.web_viewer is not None:
         print(f"Web viewer available at {app.web_viewer.base_url}")
     max_frames = 1 if args.self_test and args.frames is None else args.frames
-    return app.run(max_frames=max_frames, health_reporter=health_reporter)
+    return app.run(max_frames=max_frames)

@@ -91,17 +91,18 @@ The keyboard-specific command model is:
 
 ### Command map
 
+- `meta`, `h` -> help
 - `meta`, `q` -> home
-- `meta`, `w` -> terminal
-- `meta`, `e` -> system
-- `meta`, `a` -> previous tmux window
-- `meta`, `s` -> next tmux window
+- `meta`, `t` -> terminal
+- `meta`, `s` -> system/settings
+- `meta`, `g` -> games
+- `meta`, `r` -> TinScope
+- `meta`, `[` -> previous tmux window
+- `meta`, `]` -> next tmux window
 - `meta`, `1`..`9` -> jump to tmux window 1..9
 - `meta`, `0` -> jump to tmux window 10
-- `meta`, `d` -> create tmux window
-- `meta`, `f` -> close tmux window
-- `meta`, `z` -> previous screen
-- `meta`, `x` -> next screen
+- `meta`, `n` -> create tmux window
+- `meta`, `k` -> close tmux window
 
 System-screen-local commands:
 

@@ -21,6 +21,8 @@ SHORTCUT_APPROVE = "1"
 SHORTCUT_SESSION = "2"
 SHORTCUT_REJECT = "3"
 SHORTCUT_REDIRECT = "4"
+INITIALIZE_TIMEOUT_SECONDS = 120.0
+REQUEST_TIMEOUT_SECONDS = 30.0
 
 
 @dataclass(slots=True)
@@ -95,14 +97,13 @@ class CdxState:
 class AppServerClient:
     def __init__(self, codex_bin: str, home_override: str | None = None, xdg_state_home: str | None = None) -> None:
         self.codex_bin = codex_bin
-        self.node_bin = self._resolve_node_bin(codex_bin)
         env = os.environ.copy()
         if home_override:
             env["HOME"] = home_override
         if xdg_state_home:
             env["XDG_STATE_HOME"] = xdg_state_home
         self.process = subprocess.Popen(
-            [self.node_bin, self.codex_bin, "app-server", "--listen", "stdio://"],
+            self._launch_command(codex_bin),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -121,6 +122,17 @@ class AppServerClient:
         self._stderr_thread = threading.Thread(target=self._read_stderr, daemon=True)
         self._stdout_thread.start()
         self._stderr_thread.start()
+
+    @staticmethod
+    def _launch_command(codex_bin: str) -> list[str]:
+        if AppServerClient._requires_node(codex_bin):
+            return [AppServerClient._resolve_node_bin(codex_bin), codex_bin, "app-server", "--listen", "stdio://"]
+        return [codex_bin, "app-server", "--listen", "stdio://"]
+
+    @staticmethod
+    def _requires_node(codex_bin: str) -> bool:
+        codex_path = Path(codex_bin)
+        return codex_path.suffix == ".js" and not os.access(codex_path, os.X_OK)
 
     @staticmethod
     def _resolve_node_bin(codex_bin: str) -> str:
@@ -154,12 +166,17 @@ class AppServerClient:
                     "experimentalApi": True,
                 },
             },
-            timeout=45.0,
+            timeout=INITIALIZE_TIMEOUT_SECONDS,
         )
         self.notify("initialized")
         return response
 
-    def request(self, method: str, params: dict[str, Any] | None = None, timeout: float = 15.0) -> dict[str, Any]:
+    def request(
+        self,
+        method: str,
+        params: dict[str, Any] | None = None,
+        timeout: float = REQUEST_TIMEOUT_SECONDS,
+    ) -> dict[str, Any]:
         request_id = self._next_id
         self._next_id += 1
         response_queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=1)
@@ -281,10 +298,17 @@ class CdxApp:
             xdg_state_home=args.xdg_state_home,
         )
         self.state = CdxState()
-        self.server_info = self.client.initialize()
-        self._load_recent_threads()
-        if args.thread_id:
-            self._resume_thread(args.thread_id)
+        try:
+            self.server_info = self.client.initialize()
+            if args.thread_id:
+                self._resume_thread(args.thread_id)
+            elif args.new:
+                self._start_new_thread()
+            else:
+                self._load_recent_threads()
+        except Exception:
+            self.close()
+            raise
 
     @staticmethod
     def _resolve_codex_bin(configured: str | None) -> str:
@@ -578,7 +602,7 @@ class CdxApp:
     def _render_startup(self, stdscr) -> None:
         height, width = stdscr.getmaxyx()
         self._draw_line(stdscr, 0, 0, self._fit(f"cdx startup  {self._short_path(str(self.cwd))}", width - 1), "accent")
-        self._draw_line(stdscr, 1, 0, "=", "dim", fill=True)
+        self._draw_line(stdscr, 1, 0, "=" * max(0, width - 1), "dim")
         rows = ["new thread"] + [
             self._fit(
                 f"{thread.name or thread.preview}  [{time.strftime('%H:%M', time.localtime(thread.updated_at))}]",
@@ -605,7 +629,7 @@ class CdxApp:
         self._draw_line(stdscr, 0, 0, self._fit(header, header_width), "accent")
         if pick:
             self._draw_line(stdscr, 0, max(0, width - len(pick) - 1), pick, "pick_status")
-        self._draw_line(stdscr, 1, 0, "=", "dim", fill=True)
+        self._draw_line(stdscr, 1, 0, "=" * max(0, width - 1), "dim")
         top = 2
         if pending is not None:
             preview = pending.command or pending.reason or pending.grant_root or "approval requested"
@@ -729,10 +753,10 @@ class CdxApp:
         if self._is_shift_enter(key):
             self._insert_composer_text("\n")
             return False
-        if key == curses.KEY_UP:
+        if key == curses.KEY_UP or self._is_arrow_up(key):
             self._move_composer_cursor_vertical(-1)
             return False
-        if key == curses.KEY_DOWN:
+        if key == curses.KEY_DOWN or self._is_arrow_down(key):
             self._move_composer_cursor_vertical(1)
             return False
         if self._is_nav_prev(key):
@@ -1401,6 +1425,14 @@ class CdxApp:
         return key in {"\x1b[13;2u", "\x1b[27;2;13~"}
 
     @staticmethod
+    def _is_arrow_up(key: object) -> bool:
+        return isinstance(key, str) and key in {"\x1b[A", "\x1bOA"}
+
+    @staticmethod
+    def _is_arrow_down(key: object) -> bool:
+        return isinstance(key, str) and key in {"\x1b[B", "\x1bOB"}
+
+    @staticmethod
     def _fit(text: str, width: int) -> str:
         if width <= 0:
             return ""
@@ -1476,7 +1508,7 @@ class CdxApp:
             return
         rendered = text
         if fill:
-            rendered = (text * max(1, width - x))[: max(0, width - x - 1)]
+            rendered = text.ljust(max(0, width - x - 1))
         try:
             stdscr.addnstr(y, x, rendered, max(0, width - x - 1), self._color_attr(color))
         except curses.error:
@@ -1581,7 +1613,9 @@ class CdxApp:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Codex dashboard wrapper for the Altoids cyberdeck")
     parser.add_argument("--cwd", default=None, help="Working directory for the Codex thread")
-    parser.add_argument("--thread-id", default=None, help="Resume a specific thread id immediately")
+    startup = parser.add_mutually_exclusive_group()
+    startup.add_argument("-n", "--new", action="store_true", help="Start a new thread immediately")
+    startup.add_argument("--thread-id", default=None, help="Resume a specific thread id immediately")
     parser.add_argument("--codex-bin", default=None, help="Path to the codex CLI binary")
     parser.add_argument("--home-override", default=None, help="Override HOME for the app-server subprocess")
     parser.add_argument("--xdg-state-home", default=None, help="Override XDG_STATE_HOME for the app-server subprocess")

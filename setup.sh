@@ -55,13 +55,18 @@ sudo "$VENV_DIR/bin/pip" install --upgrade pip
 sudo "$VENV_DIR/bin/pip" install -r "$ROOT_DIR/requirements.txt"
 
 sudo mkdir -p /var/lib/altoids/tmux
+sudo install -d -m 750 /etc/polkit-1/rules.d
+sed "s/@ALTOIDS_USER@/$SERVICE_USER/g" "$CONFIG_DIR/altoids-wifi-polkit.rules" \
+  | sudo tee /etc/polkit-1/rules.d/49-altoids-wifi.rules >/dev/null
+sudo chmod 644 /etc/polkit-1/rules.d/49-altoids-wifi.rules
+sudo systemctl restart polkit.service 2>/dev/null || sudo systemctl restart policykit.service 2>/dev/null || true
 sudo install -m 644 "$CONFIG_DIR/tmux.conf" "$TMUX_RUNTIME_CONF"
 sudo ln -sfn "$TMUX_RUNTIME_CONF" /etc/tmux.conf
 ln -sfn "$TMUX_RUNTIME_CONF" "$HOME/.tmux.conf"
 sudo install -m 755 "$CONFIG_DIR/altoids-runtime.py" "$RUNTIME_BIN_DIR/altoids-runtime"
-sudo install -m 755 "$CONFIG_DIR/altoids-supervisor" "$RUNTIME_BIN_DIR/altoids-supervisor"
 sudo install -m 755 "$CONFIG_DIR/altoidsctl" "$RUNTIME_BIN_DIR/altoidsctl"
 sudo install -m 755 "$CONFIG_DIR/cdx" "$RUNTIME_BIN_DIR/cdx"
+sudo rm -f "$RUNTIME_BIN_DIR/altoids-supervisor"
 sudo chown -R "$SERVICE_USER:$SERVICE_GROUP" "$INSTALL_DIR"
 if [ ! -L "$INSTALL_DIR/current" ]; then
   sudo "$RUNTIME_BIN_DIR/altoidsctl" bootstrap --source "$ROOT_DIR" --release-id bootstrap
@@ -72,5 +77,5 @@ sudo systemctl daemon-reload
 sudo systemctl enable altoids.service
 
 echo "Setup complete. Review overlayfs and raspi-config steps manually on the Pi."
-echo "Make targets: make self-test, make stage, make reload, make update, make status, make tmux-sync"
+echo "Make targets: make self-test, make stage, make activate, make restart-staged, make update, make status, make tmux-sync"
 echo "If Whisplay WM8960 audio was just installed, reboot the Pi before launching Altoids."
