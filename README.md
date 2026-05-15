@@ -166,11 +166,11 @@ Current controls:
 - `Y`: enter Wi‑Fi setup
 - `long Y`: open terminal
 
-Wi‑Fi setup scans nearby networks and shows the selected network from that scan. Inside setup, `A` / `B` picks a network, `X` rescans, and `Y` joins the selected network. Keyboard users can press `CMD+C` from the system screen to enter setup, then use `Up` / `Down`, `R`, `Enter`, and `Esc`.
+Wi‑Fi setup opens on the latest cached network list to avoid spending battery on an automatic scan. Inside setup, `A` / `B` picks a network, `X` rescans, and `Y` joins the selected network. Keyboard users can press `W` from the system screen to enter setup, then use `Up` / `Down`, `R`, `Enter`, and `Esc`.
 
 If the selected Wi‑Fi network is secured and no working password is cached, the system screen prompts for a password from the keyboard. `Enter` submits, `Backspace` edits, and `Esc` cancels.
 
-On the system screen, `CMD+C` enters Wi‑Fi setup.
+On the system screen, `W` enters Wi‑Fi setup.
 
 Wi‑Fi management is implemented in [altoids/wifi.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/wifi.py:1) and currently depends on `nmcli`, which means the Pi should use NetworkManager.
 

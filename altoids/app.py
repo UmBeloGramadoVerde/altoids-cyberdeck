@@ -6,6 +6,7 @@ import socket
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Callable
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -26,10 +27,13 @@ from .sleep import SleepManager
 from .terminal import TmuxManager
 from .voice import VoiceManager, VoiceResult
 from .wifi import WifiManager
-from .webviewer import WebViewer
-from .ui import EmulationScreen, HomeScreen, Screen, ScreenContext, SystemScreen, TerminalScreen, TinScopeScreen
+from .ui.base import Screen, ScreenContext
+from .ui.home import HomeScreen
 from .ui.widgets import draw_label
 from .ui.widgets import draw_button_bar
+
+if TYPE_CHECKING:
+    from .webviewer import WebViewer
 
 
 @dataclass(slots=True)
@@ -112,18 +116,21 @@ class AltoidsApp:
         self.button_input = ButtonInput(self.handle_button_event)
         self.keyboard_input = KeyboardInput()
         self.bluetooth_monitor = BluetoothMonitor()
-        self.bluetooth_status = self.bluetooth_monitor.poll()
+        self.bluetooth_status = self.bluetooth_monitor.status
         self.sleep_manager = SleepManager(config.sleep.idle_seconds)
         self.accents = AccentManager(self.display, config.audio, config.led)
         self.voice = VoiceManager(config.voice, enabled=config.voice.enabled and self.display.is_whisplay)
         self.screen_order = ["home", "tinscope", "emu", "term", "system"]
         context = ScreenContext(app=self)
+        self._screen_context = context
         self.screens: dict[str, Screen] = {
             "home": HomeScreen(context),
-            "tinscope": TinScopeScreen(context),
-            "emu": EmulationScreen(context),
-            "term": TerminalScreen(context),
-            "system": SystemScreen(context),
+        }
+        self._screen_factories: dict[str, Callable[[], Screen]] = {
+            "tinscope": self._create_tinscope_screen,
+            "emu": self._create_emulation_screen,
+            "term": self._create_terminal_screen,
+            "system": self._create_system_screen,
         }
         self.active_screen_name = "home"
         self.needs_redraw = True
@@ -133,8 +140,9 @@ class AltoidsApp:
         self.help_page_index = 0
         self.help_page_index_by_context: dict[str, int] = {}
         self.help_scroll_offsets: dict[int, int] = {}
-        self.web_viewer = WebViewer(host=web_host, port=web_port) if web_viewer else None
+        self.web_viewer: WebViewer | None = self._create_web_viewer(web_host, web_port) if web_viewer else None
         self._active_fps = max(config.display.fps_active, 20) if self.web_viewer is not None else config.display.fps_active
+        self._first_frame_rendered = False
         self._boot_accent_fired = False
         self._last_input_event_at: float | None = None
         self._last_input_to_render_ms: float | None = None
@@ -176,19 +184,53 @@ class AltoidsApp:
 
     @property
     def active_screen(self) -> Screen:
-        return self.screens[self.active_screen_name]
+        return self._screen(self.active_screen_name)
 
     @property
     def shows_button_bar(self) -> bool:
         return not self.display.is_whisplay
 
     def set_screen(self, name: str) -> None:
-        if name not in self.screens or self.active_screen_name == name:
+        known_screens = getattr(self, "screen_order", tuple(self.screens.keys()))
+        if name not in known_screens or self.active_screen_name == name:
             return
         getattr(self.active_screen, "on_deactivate", lambda: None)()
+        self._screen(name)
         self.active_screen_name = name
         self.needs_redraw = True
         self.accents.trigger("screen_change")
+
+    def _screen(self, name: str) -> Screen:
+        screen = self.screens.get(name)
+        if screen is not None:
+            return screen
+        factory = self._screen_factories.get(name)
+        if factory is None:
+            raise KeyError(name)
+        screen = factory()
+        self.screens[name] = screen
+        return screen
+
+    def _create_emulation_screen(self) -> Screen:
+        from .ui.emulation import EmulationScreen
+        return EmulationScreen(self._screen_context)
+
+    def _create_tinscope_screen(self) -> Screen:
+        from .ui.tinscope import TinScopeScreen
+        return TinScopeScreen(self._screen_context)
+
+    def _create_terminal_screen(self) -> Screen:
+        from .ui.term import TerminalScreen
+        return TerminalScreen(self._screen_context)
+
+    def _create_system_screen(self) -> Screen:
+        from .ui.system import SystemScreen
+        return SystemScreen(self._screen_context)
+
+    @staticmethod
+    def _create_web_viewer(host: str, port: int) -> WebViewer:
+        from .webviewer import WebViewer
+        return WebViewer(host=host, port=port)
 
     def handle_button_event(self, event: ButtonEvent) -> None:
         self._mark_input_event()
@@ -785,8 +827,9 @@ class AltoidsApp:
 
                 for event in self.button_input.poll():
                     self.handle_button_event(event)
-                for event in self.keyboard_input.poll():
-                    self.handle_keyboard_event(event)
+                if self._first_frame_rendered:
+                    for event in self.keyboard_input.poll():
+                        self.handle_keyboard_event(event)
                 if self.web_viewer is not None:
                     web_events = self.web_viewer.poll_events()
                     for event in web_events.button_events:
@@ -796,7 +839,7 @@ class AltoidsApp:
                 for result in self.voice.update():
                     self._handle_voice_result(result)
 
-                if not self.input_render_pending:
+                if self._first_frame_rendered and not self.input_render_pending:
                     self.bluetooth_status = self.bluetooth_monitor.poll()
                 if self.command_mode_deadline and not self.command_mode_active:
                     self.command_mode_deadline = 0.0
@@ -811,6 +854,7 @@ class AltoidsApp:
 
                 if not self.sleep_manager.sleeping and self.needs_redraw:
                     self.render()
+                    self._first_frame_rendered = True
                     frame_count += 1
                     if not self._boot_accent_fired:
                         self.accents.trigger("boot_complete")

@@ -117,7 +117,7 @@ class SystemScreen(Screen):
         # ── LINK panel content (background, left middle) ──
         draw_status_dot(draw, 22, 102, wifi_connected, INFO)
         draw_label(draw, 34, 100, "WIFI", app.font, DIM)
-        draw_label(draw, 64, 100, "ON" if wifi_connected else "OFF", app.font, INFO if wifi_connected else DIM)
+        draw_label(draw, 64, 100, self._trim(wifi_ssid.upper(), 6), app.font, INFO if wifi_connected else DIM)
         draw_status_dot(draw, 22, 118, app.bluetooth_status.connected, COOL)
         draw_label(draw, 34, 116, "BT", app.font, DIM)
         draw_label(draw, 56, 116, "LIVE" if app.bluetooth_status.connected else "IDLE", app.font, COOL if app.bluetooth_status.connected else DIM)
@@ -519,7 +519,7 @@ class SystemScreen(Screen):
             self.detail_active = panel
             self.detail_scroll = 0
             if panel == "wireless":
-                self._enter_wifi_config(force_scan=True)
+                self._enter_wifi_config(force_scan=False)
             return True
         return False
 
@@ -645,7 +645,19 @@ class SystemScreen(Screen):
         return "S sys  P perf  L link  W wifi  R rig  A audio"
 
     def _enter_wifi_config(self, *, force_scan: bool = False) -> None:
-        self._start_wifi_scan(force=force_scan)
+        if force_scan:
+            self._start_wifi_scan(force=True)
+            return
+        selected_network = self._selected_network()
+        selected_ssid = selected_network.ssid if selected_network is not None else None
+        cached = self.context.app.wifi.scan(force=False, allow_refresh=False)
+        if cached:
+            self.networks = cached
+            self._sync_wifi_selection(preferred_ssid=selected_ssid, prefer_active=False)
+            self.status_line = self.context.app.wifi.last_message
+        else:
+            self.status_line = "press R to scan wifi"
+        self._refresh_elapsed = 0.0
 
     def _scan_wifi_now(self, *, force_scan: bool = False) -> None:
         selected_network = self._selected_network()

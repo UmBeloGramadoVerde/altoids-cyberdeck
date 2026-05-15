@@ -7,7 +7,7 @@ from argparse import Namespace
 from pathlib import Path
 
 import altoids.cdx as cdx
-from altoids.cdx import AppServerClient, CdxApp, CdxState
+from altoids.cdx import AppServerClient, ApprovalRequest, CdxApp, CdxState, PasteText
 
 
 class FakeScreen:
@@ -48,6 +48,84 @@ class CdxComposerRenderingTest(unittest.TestCase):
         app._handle_composer_key("\x1b[B")
         self.assertEqual(app.state.composer, "ab\ncd")
         self.assertEqual(app.state.composer_cursor, 5)
+
+
+class CdxApprovalPasswordTest(unittest.TestCase):
+    def test_command_approval_includes_staged_user_password(self) -> None:
+        app = CdxApp.__new__(CdxApp)
+        client = FakeApprovalClient()
+        app.client = client
+        app.state = CdxState(
+            pending_approvals=[
+                ApprovalRequest(
+                    request_id=7,
+                    method="item/commandExecution/requestApproval",
+                    thread_id="thread",
+                    turn_id="turn",
+                    item_id="item",
+                    command="sudo apt clean",
+                    user_password="secret",
+                )
+            ],
+            entering_approval_password=True,
+        )
+
+        app._reply_to_approval("accept")
+
+        self.assertEqual(client.responses, [(7, {"decision": "accept", "userPassword": "secret"})])
+        self.assertEqual(app.state.pending_approvals[0].user_password, "")
+        self.assertFalse(app.state.entering_approval_password)
+
+    def test_file_approval_does_not_include_user_password(self) -> None:
+        app = CdxApp.__new__(CdxApp)
+        client = FakeApprovalClient()
+        app.client = client
+        app.state = CdxState(
+            pending_approvals=[
+                ApprovalRequest(
+                    request_id=8,
+                    method="item/fileChange/requestApproval",
+                    thread_id="thread",
+                    turn_id="turn",
+                    item_id="item",
+                    grant_root="/tmp",
+                    user_password="secret",
+                )
+            ]
+        )
+
+        app._reply_to_approval("accept")
+
+        self.assertEqual(client.responses, [(8, {"decision": "accept"})])
+
+    def test_approval_password_entry_masks_state_until_enter(self) -> None:
+        app = CdxApp.__new__(CdxApp)
+        approval = ApprovalRequest(
+            request_id=7,
+            method="item/commandExecution/requestApproval",
+            thread_id="thread",
+            turn_id="turn",
+            item_id="item",
+            command="sudo apt clean",
+        )
+        app.state = CdxState(pending_approvals=[approval], entering_approval_password=True)
+
+        app._handle_approval_password_key("s")
+        app._handle_approval_password_key(PasteText("ecret"))
+        app._handle_approval_password_key("\b")
+        app._handle_approval_password_key("t")
+        app._handle_approval_password_key("\n")
+
+        self.assertEqual(approval.user_password, "secret")
+        self.assertFalse(app.state.entering_approval_password)
+
+
+class FakeApprovalClient:
+    def __init__(self) -> None:
+        self.responses: list[tuple[int | str, dict[str, object]]] = []
+
+    def respond(self, request_id: int | str, result: dict[str, object]) -> None:
+        self.responses.append((request_id, result))
 
 
 class CdxStartupTest(unittest.TestCase):
@@ -107,6 +185,7 @@ class CdxStartupTest(unittest.TestCase):
                 new=True,
             )
             app = CdxApp(args)
+            app._startup_thread.join(timeout=1.0)
         finally:
             cdx.AppServerClient = original_client
             CdxApp._resolve_codex_bin = original_resolver
@@ -135,14 +214,15 @@ class CdxStartupTest(unittest.TestCase):
         CdxApp._resolve_codex_bin = staticmethod(lambda configured: "/usr/bin/codex")
         try:
             args = Namespace(cwd=None, codex_bin=None, home_override=None, xdg_state_home=None, thread_id=None, new=False)
-            with self.assertRaisesRegex(RuntimeError, "initialize timed out"):
-                CdxApp(args)
+            app = CdxApp(args)
+            app._startup_thread.join(timeout=1.0)
         finally:
             cdx.AppServerClient = original_client
             CdxApp._resolve_codex_bin = original_resolver
 
         self.assertEqual(len(instances), 1)
         self.assertTrue(instances[0].closed)
+        self.assertEqual(app.state.notice, "initialize timed out")
 
 
 if __name__ == "__main__":

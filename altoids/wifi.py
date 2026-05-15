@@ -223,7 +223,11 @@ class WifiManager:
                     current = {}
                 continue
             key, _, value = line.partition(":")
-            current[key.strip()] = value.strip()
+            key = key.strip()
+            if current and (key in current or key == "IN-USE"):
+                records.append(current)
+                current = {}
+            current[key] = value.strip()
         if current:
             records.append(current)
         return records

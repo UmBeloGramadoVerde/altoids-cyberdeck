@@ -115,8 +115,10 @@ Current actions:
 - `2`: `acceptForSession`
 - `3`: `decline`
 - `4`: `decline`, then prepare a redirect message
+- `5`: enter or edit a masked OS password for the pending command approval
 
 `cdx` keeps the approval visible until the server confirms `serverRequest/resolved`.
+For command execution approvals, the staged password is sent as `userPassword` with the approval response and then cleared locally.
 
 ## Feed Design
 

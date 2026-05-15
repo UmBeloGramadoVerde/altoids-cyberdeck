@@ -21,6 +21,7 @@ SHORTCUT_APPROVE = "1"
 SHORTCUT_SESSION = "2"
 SHORTCUT_REJECT = "3"
 SHORTCUT_REDIRECT = "4"
+SHORTCUT_PASSWORD = "5"
 INITIALIZE_TIMEOUT_SECONDS = 120.0
 REQUEST_TIMEOUT_SECONDS = 30.0
 
@@ -46,6 +47,7 @@ class ApprovalRequest:
     command: str = ""
     cwd: str = ""
     grant_root: str = ""
+    user_password: str = ""
 
 
 @dataclass(slots=True)
@@ -83,6 +85,7 @@ class CdxState:
     reader_scroll: int = 0
     notice: str = ""
     awaiting_redirect_message: bool = False
+    entering_approval_password: bool = False
     startup_index: int = 0
     startup_threads: list[RecentThread] = field(default_factory=list)
     thread_id: str = ""
@@ -292,23 +295,33 @@ class CdxApp:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
         self.cwd = Path(args.cwd or Path.cwd()).resolve()
-        self.client = AppServerClient(
-            self._resolve_codex_bin(args.codex_bin),
-            home_override=args.home_override,
-            xdg_state_home=args.xdg_state_home,
-        )
+        self.client: AppServerClient | None = None
         self.state = CdxState()
+        self.server_info: dict[str, Any] = {}
+        self.state.notice = "Starting Codex app-server..."
+        self._startup_thread = threading.Thread(target=self._startup_worker, daemon=True)
+        self._startup_thread.start()
+
+    def _startup_worker(self) -> None:
         try:
-            self.server_info = self.client.initialize()
-            if args.thread_id:
-                self._resume_thread(args.thread_id)
-            elif args.new:
+            client = AppServerClient(
+                self._resolve_codex_bin(self.args.codex_bin),
+                home_override=self.args.home_override,
+                xdg_state_home=self.args.xdg_state_home,
+            )
+            self.client = client
+            self.server_info = client.initialize()
+            if self.args.thread_id:
+                self._resume_thread(self.args.thread_id)
+            elif self.args.new:
                 self._start_new_thread()
             else:
                 self._load_recent_threads()
-        except Exception:
+                if not self.state.notice.startswith("Codex app-server did not respond"):
+                    self.state.notice = ""
+        except Exception as exc:
             self.close()
-            raise
+            self.state.notice = str(exc)
 
     @staticmethod
     def _resolve_codex_bin(configured: str | None) -> str:
@@ -329,7 +342,13 @@ class CdxApp:
         raise RuntimeError("Could not locate codex binary")
 
     def close(self) -> None:
-        self.client.close()
+        if self.client is not None:
+            self.client.close()
+
+    def _client(self) -> AppServerClient:
+        if self.client is None:
+            raise RuntimeError("Codex app-server is still starting.")
+        return self.client
 
     def run(self) -> int:
         try:
@@ -350,7 +369,7 @@ class CdxApp:
             self._render(stdscr)
             if self._poll_input(stdscr):
                 return 0
-            if self.client.process.poll() is not None:
+            if self.client is not None and self.client.process.poll() is not None:
                 self.state.notice = "Codex app-server exited."
                 self._render(stdscr)
                 return int(self.client.process.returncode or 0)
@@ -358,7 +377,7 @@ class CdxApp:
 
     def _load_recent_threads(self) -> None:
         try:
-            result = self.client.request(
+            result = self._client().request(
                 "thread/list",
                 {
                     "cwd": str(self.cwd),
@@ -385,7 +404,7 @@ class CdxApp:
 
     def _start_new_thread(self) -> None:
         try:
-            result = self.client.request(
+            result = self._client().request(
                 "thread/start",
                 {
                     "cwd": str(self.cwd),
@@ -403,7 +422,7 @@ class CdxApp:
 
     def _resume_thread(self, thread_id: str) -> None:
         try:
-            result = self.client.request(
+            result = self._client().request(
                 "thread/resume",
                 {
                     "threadId": thread_id,
@@ -425,6 +444,7 @@ class CdxApp:
         self.state.active_item_id = ""
         self.state.active_item_label = ""
         self.state.pending_approvals.clear()
+        self.state.entering_approval_password = False
         self.state.reader_open = False
         self.state.reader_scroll = 0
         self.state.feed_top_entry = 0
@@ -445,6 +465,8 @@ class CdxApp:
             self._upsert_feed_entry(entry)
 
     def _drain_protocol_events(self) -> None:
+        if self.client is None:
+            return
         while True:
             try:
                 event_type, payload = self.client.events.get_nowait()
@@ -456,6 +478,8 @@ class CdxApp:
                 self._handle_server_request(payload)
 
     def _drain_stderr(self) -> None:
+        if self.client is None:
+            return
         while True:
             try:
                 line = self.client.stderr_lines.get_nowait()
@@ -542,6 +566,8 @@ class CdxApp:
             if params.get("threadId") == self.state.thread_id:
                 request_id = params.get("requestId")
                 self.state.pending_approvals = [item for item in self.state.pending_approvals if item.request_id != request_id]
+                if not self.state.pending_approvals:
+                    self.state.entering_approval_password = False
             return
         if method in {"warning", "guardianWarning", "deprecationNotice", "configWarning"}:
             message = params.get("message") or params.get("text") or "Warning"
@@ -633,7 +659,15 @@ class CdxApp:
         top = 2
         if pending is not None:
             preview = pending.command or pending.reason or pending.grant_root or "approval requested"
-            self._draw_line(stdscr, top, 0, self._fit(f"[?] waiting: {preview}", width - 1), "warn")
+            if self.state.entering_approval_password:
+                masked = "*" * min(len(pending.user_password), 24)
+                self._draw_line(stdscr, top, 0, self._fit(f"[?] sudo password: {masked}", width - 1), "warn")
+            else:
+                suffix = "  1 ok 2 session 3 no 4 redirect"
+                if pending.method == "item/commandExecution/requestApproval":
+                    password_status = " pw" if pending.user_password else ""
+                    suffix = f"{suffix} 5 pass{password_status}"
+                self._draw_line(stdscr, top, 0, self._fit(f"[?] waiting: {preview}{suffix}", width - 1), "warn")
             top += 1
         else:
             status = self._session_status()
@@ -673,6 +707,9 @@ class CdxApp:
             self.state.startup_index = (self.state.startup_index + 1) % total
             return False
         if key in {"\n", "\r"} or key == curses.KEY_ENTER:
+            if self.client is None:
+                self.state.notice = "Codex app-server is still starting."
+                return False
             if self.state.startup_index == 0:
                 self._start_new_thread()
             else:
@@ -686,6 +723,8 @@ class CdxApp:
     def _handle_session_key(self, key: object) -> bool:
         if self.state.reader_open:
             return self._handle_reader_key(key)
+        if self.state.entering_approval_password:
+            return self._handle_approval_password_key(key)
         if key == SHORTCUT_APPROVE and self.state.pending_approvals:
             self._reply_to_approval("accept")
             return False
@@ -697,6 +736,10 @@ class CdxApp:
             return False
         if key == SHORTCUT_REDIRECT and self.state.pending_approvals:
             self._reply_to_approval("decline", redirect=True)
+            return False
+        if key == SHORTCUT_PASSWORD and self._pending_command_approval() is not None:
+            self.state.entering_approval_password = True
+            self.state.notice = "Type sudo password, Enter to keep, Esc to clear."
             return False
         if key == "\t":
             self.state.session_focus = "composer" if self.state.session_focus == "feed" else "feed"
@@ -740,6 +783,31 @@ class CdxApp:
         if self._is_ctrl_char(key, 12):
             self._load_recent_threads()
             self.state.notice = "Recent threads refreshed."
+            return False
+        return False
+
+    def _handle_approval_password_key(self, key: object) -> bool:
+        approval = self._pending_command_approval()
+        if approval is None:
+            self.state.entering_approval_password = False
+            return False
+        if key in {"\n", "\r"} or key == curses.KEY_ENTER:
+            self.state.entering_approval_password = False
+            self.state.notice = "Sudo password staged for approval."
+            return False
+        if key in {27, "\x1b"}:
+            approval.user_password = ""
+            self.state.entering_approval_password = False
+            self.state.notice = "Sudo password cleared."
+            return False
+        if key in {curses.KEY_BACKSPACE, "\b", "\x7f"}:
+            approval.user_password = approval.user_password[:-1]
+            return False
+        if isinstance(key, PasteText):
+            approval.user_password += key.text
+            return False
+        if isinstance(key, str) and key.isprintable():
+            approval.user_password += key
             return False
         return False
 
@@ -895,7 +963,7 @@ class CdxApp:
             return
         try:
             if self.state.active_turn_id:
-                result = self.client.request(
+                result = self._client().request(
                     "turn/steer",
                     {
                         "threadId": self.state.thread_id,
@@ -906,7 +974,7 @@ class CdxApp:
                 self.state.active_turn_id = result.get("turnId", self.state.active_turn_id)
                 self.state.notice = "Steer sent."
             else:
-                result = self.client.request(
+                result = self._client().request(
                     "turn/start",
                     {
                         "threadId": self.state.thread_id,
@@ -931,12 +999,24 @@ class CdxApp:
             return
         approval = self.state.pending_approvals[0]
         payload = {"decision": decision}
-        self.client.respond(approval.request_id, payload)
+        if approval.method == "item/commandExecution/requestApproval" and approval.user_password:
+            payload["userPassword"] = approval.user_password
+        self._client().respond(approval.request_id, payload)
+        approval.user_password = ""
+        self.state.entering_approval_password = False
         if redirect:
             self.state.awaiting_redirect_message = True
             self.state.notice = "Approval declined. Type redirect message and press Enter."
         else:
             self.state.notice = "Approval response sent."
+
+    def _pending_command_approval(self) -> ApprovalRequest | None:
+        if not self.state.pending_approvals:
+            return None
+        approval = self.state.pending_approvals[0]
+        if approval.method != "item/commandExecution/requestApproval":
+            return None
+        return approval
 
     def _entry_from_item(self, item: dict[str, Any]) -> FeedEntry | None:
         item_type = item.get("type")

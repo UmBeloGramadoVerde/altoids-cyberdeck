@@ -144,24 +144,30 @@ class KeyboardEvent:
 
 class KeyboardInput:
     def __init__(self) -> None:
+        self.available = True
+        self.evdev = None
+        self._devices = []
+        self._modifier_state: set[str] = set()
+        self._last_discovery_at = 0.0
+        self._backend_checked = False
+
+    def _ensure_backend(self) -> bool:
+        if self._backend_checked:
+            return self.available and self.evdev is not None
+        self._backend_checked = True
         try:
             import evdev
         except ModuleNotFoundError:
             self.available = False
-            self.evdev = None
-            self._devices = []
-            self._modifier_state: set[str] = set()
-            self._last_discovery_at = 0.0
+            return False
         else:
             self.available = True
             self.evdev = evdev
-            self._devices = []
-            self._modifier_state: set[str] = set()
-            self._last_discovery_at = 0.0
             self._discover_devices(force=True)
+            return True
 
     def poll(self) -> list[KeyboardEvent]:
-        if not self.available:
+        if not self._ensure_backend():
             return []
 
         self._discover_devices(force=False)

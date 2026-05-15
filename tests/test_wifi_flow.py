@@ -16,6 +16,7 @@ class FakeWifi:
         self.connected_ssid = ""
         self.passwords: dict[str, str] = {}
         self.scan_calls: list[bool] = []
+        self.scan_refresh_calls: list[bool] = []
         self.networks = [
             WifiNetwork("Lab", 80, "WPA2"),
             WifiNetwork("Cafe", 70, ""),
@@ -24,6 +25,7 @@ class FakeWifi:
 
     def scan(self, force: bool = False, allow_refresh: bool = True) -> list[WifiNetwork]:
         self.scan_calls.append(force)
+        self.scan_refresh_calls.append(allow_refresh)
         return list(self.networks)
 
     def connect(self, network: WifiNetwork, password: str | None = None) -> tuple[bool, str]:
@@ -102,6 +104,26 @@ class WifiFlowTest(unittest.TestCase):
         self.assertIn("scanning wifi", screen.status_line)
         self.drain_wifi(screen)
         self.assertEqual(screen._wifi_busy, "")
+
+    def test_opening_wireless_detail_uses_cache_without_scanning(self) -> None:
+        screen = self.make_screen()
+
+        self.assertTrue(screen.on_keyboard_event(KeyboardEvent(key="w", raw_key="KEY_W")))
+
+        self.assertEqual(screen.detail_active, "wireless")
+        self.assertEqual(screen._wifi_busy, "")
+        self.assertEqual(screen.context.app.wifi.scan_calls, [False])
+        self.assertEqual(screen.context.app.wifi.scan_refresh_calls, [False])
+
+    def test_r_key_starts_wireless_scan_from_detail(self) -> None:
+        screen = self.make_screen()
+        screen.on_keyboard_event(KeyboardEvent(key="w", raw_key="KEY_W"))
+
+        self.assertTrue(screen.on_keyboard_event(KeyboardEvent(key="r", raw_key="KEY_R")))
+
+        self.assertEqual(screen._wifi_busy, "scan")
+        self.drain_wifi(screen)
+        self.assertIn(True, screen.context.app.wifi.scan_calls)
 
     def test_button_y_joins_selected_wireless_network(self) -> None:
         screen = self.make_screen()
@@ -215,6 +237,42 @@ class FakeScanWifi(WifiManager):
         return SimpleNamespace(returncode=0, stdout="", stderr="", args=command)
 
 
+class FakeScanNoBlankWifi(FakeScanWifi):
+    def _run(self, *args: str):
+        command = ("nmcli", *args)
+        if args[:2] == ("radio", "wifi"):
+            return SimpleNamespace(returncode=0, stdout="enabled\n", stderr="", args=command)
+        if args[:4] == ("-m", "multiline", "-f", "IN-USE,BSSID,SSID,CHAN,SIGNAL,SECURITY"):
+            return SimpleNamespace(
+                returncode=0,
+                stdout="\n".join(
+                    [
+                        "IN-USE:*",
+                        "BSSID:AA:AA:AA:AA:AA:01",
+                        "SSID:Mesh",
+                        "CHAN:1",
+                        "SIGNAL:50",
+                        "SECURITY:WPA2",
+                        "IN-USE:",
+                        "BSSID:AA:AA:AA:AA:AA:02",
+                        "SSID:Mesh",
+                        "CHAN:6",
+                        "SIGNAL:80",
+                        "SECURITY:WPA2",
+                        "IN-USE:",
+                        "BSSID:BB:BB:BB:BB:BB:01",
+                        "SSID:Cafe",
+                        "CHAN:11",
+                        "SIGNAL:55",
+                        "SECURITY:",
+                    ]
+                ),
+                stderr="",
+                args=command,
+            )
+        return SimpleNamespace(returncode=0, stdout="", stderr="", args=command)
+
+
 class WifiManagerTest(unittest.TestCase):
     def test_status_reports_active_ssid_not_connection_profile_name(self) -> None:
         status = FakeNmcliWifi().status()
@@ -233,6 +291,15 @@ class WifiManagerTest(unittest.TestCase):
         self.assertEqual(networks[0].signal, 50)
         self.assertEqual(networks[1].signal, 80)
         self.assertEqual(networks[1].channel, "6")
+        self.assertEqual(manager.last_message, "scan ok 3 nets")
+
+    def test_scan_preserves_access_points_without_blank_record_separators(self) -> None:
+        manager = FakeScanNoBlankWifi()
+
+        networks = manager.scan(force=False)
+
+        self.assertEqual([network.ssid for network in networks], ["Mesh", "Mesh", "Cafe"])
+        self.assertEqual([network.bssid for network in networks], ["AA:AA:AA:AA:AA:01", "AA:AA:AA:AA:AA:02", "BB:BB:BB:BB:BB:01"])
         self.assertEqual(manager.last_message, "scan ok 3 nets")
 
 
