@@ -274,28 +274,88 @@ See [docs/cdx.md](/home/kayna/altoids-cyberdeck/docs/cdx.md:1) for:
 
 ## Setup
 
-The intended deployment path is [setup.sh](/Users/kaynaoliveira/Documents/GitHub/altoids/setup.sh:1).
+### Prerequisites
 
-It currently:
+Before running setup, ensure:
 
-- installs Python and tmux dependencies
-- uses distro `python3-gi` and `python3-gi-cairo` packages instead of building `PyGObject` from `pip`
-- installs `alsa-utils` for WM8960 mixer and playback control
-- installs `i2c-tools`, `dkms`, `libasound2-plugins`, `unzip`, and `raspi-config` for PiSugar's WM8960 installer
-- installs `python3-spidev` and `python3-libgpiod` for the Whisplay LCD driver
-- installs `network-manager`
+1. **Raspberry Pi OS** is installed and booted (tested on Debian Trixie / Bookworm, aarch64)
+2. **SSH access** is configured and the Pi is reachable on the network
+3. **Passwordless sudo** is enabled for the service user (default: `kayna`, set in `config/altoids.service`):
+   ```bash
+   sudo bash -c 'echo "kayna ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/kayna'
+   ```
+4. **Git** is available (pre-installed on Raspberry Pi OS)
+
+### Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/UmBeloGramadoVerde/altoids-cyberdeck.git ~/altoids
+cd ~/altoids
+
+# Run setup (installs deps, enables SPI/I2C, creates service)
+bash setup.sh
+
+# Reboot (required for SPI/I2C and audio driver changes)
+sudo reboot
+```
+
+After reboot, the `altoids.service` starts automatically. Check status with:
+
+```bash
+sudo systemctl status altoids.service
+```
+
+### What setup.sh does
+
+- enables SPI, I2C, and Bluetooth auto-power-on
+- installs system packages (Python, tmux, NetworkManager, ALSA, etc.)
 - clones the PiSugar Whisplay driver into `/opt/altoids/vendor/Whisplay`
-- runs PiSugar's `Driver/install_wm8960_drive.sh` so the WM8960 overlay, modules, mixer service, and ALSA state are installed during setup
-- copies the bundled `tmux.conf`
-- installs the `altoids.service` systemd unit
-- enables the service
+- installs WM8960 audio driver if present (Whisplay hardware only)
+- creates a Python virtual environment at `/opt/altoids/.venv`
+- copies `config/altoids.example.toml` to `config/altoids.toml` if not present
+- installs runtime scripts and the `altoids.service` systemd unit
+- bootstraps the initial release under `/opt/altoids/releases/`
 
-Related config files:
+### Supported Display Hardware
+
+The display backend auto-detects the connected hardware:
+
+- **Pimoroni Display HAT Mini** (320x240) — uses the `displayhatmini` Python package
+- **PiSugar Whisplay** (240x280) — uses the vendor Whisplay driver
+
+Set `backend = "auto"` in `config/altoids.toml` (the default) to auto-detect, or force a specific backend with `"displayhatmini"` or `"whisplay"`.
+
+### Keyboard Pairing (EXknight M4)
+
+The recommended keyboard is the EXknight M4, a compact Bluetooth 5.0 QWERTY keyboard. After setup and reboot:
+
+1. Power on the keyboard (slide switch down)
+2. Hold `Fn + Q` for 2 seconds to enter pairing mode (backlight blinks)
+3. Pair from the Pi:
+
+```bash
+bluetoothctl scan on
+# Wait for "M4" to appear, note its MAC address
+bluetoothctl pair <MAC>
+bluetoothctl trust <MAC>
+```
+
+4. The keyboard auto-reconnects on wake after being trusted
+
+Set the keyboard to Android mode (`Fn + W`) for best Linux compatibility. See [docs/keyboard-exknight-m4.md](docs/keyboard-exknight-m4.md) for the full key layout and integration reference.
+
+The `Windows`/`Cmd` key on the M4 acts as the cyberdeck command-mode trigger. Tap it, then press a command key within 1.5 seconds (e.g. `Cmd` then `Q` for home, `Cmd` then `W` for terminal). See the help overlay (`F1`) for the full command map.
+
+### Changing the Service User
+
+The systemd service runs as the user specified in `config/altoids.service` (`User=kayna` by default). To change it, edit that file before running `setup.sh`.
+
+### Related Config Files
 
 - [config/altoids.service](/Users/kaynaoliveira/Documents/GitHub/altoids/config/altoids.service:1)
+- [config/altoids.toml](/Users/kaynaoliveira/Documents/GitHub/altoids/config/altoids.example.toml:1) (created from example on first setup)
 - [config/tmux.conf](/Users/kaynaoliveira/Documents/GitHub/altoids/config/tmux.conf:1)
-
-PiSugar's installer edits `/boot/firmware/config.txt`, updates `/etc/modules`, installs `wm8960-soundcard.service`, and recommends a reboot after setup so ALSA re-enumerates the `wm8960soundcard` device cleanly.
 
 ## Safe Reload Flow
 
@@ -345,11 +405,12 @@ This is intended to preserve shell layout, working directories, and scrollback a
 
 This codebase is currently written around these assumptions:
 
-- Raspberry Pi Zero 2W
-- Pimoroni Display HAT Mini
+- Raspberry Pi Zero 2W (also works on Pi 3/4/5)
+- Display: Pimoroni Display HAT Mini (320x240) **or** PiSugar Whisplay (240x280) — auto-detected
+- SPI and I2C enabled (setup.sh handles this)
 - Linux environment with `tmux`
 - NetworkManager with `nmcli`
-- Python environment with `Pillow` and `psutil`
+- Python 3.7+ with `Pillow` and `psutil`
 
 Some modules are still scaffolds rather than full hardware integrations:
 

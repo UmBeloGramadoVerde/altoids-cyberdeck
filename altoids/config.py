@@ -20,7 +20,7 @@ class DisplayConfig:
     fps_idle: int = 1
     backlight_brightness: float = 1.0
     rotation: int = 270
-    driver_path: str = "vendor/Whisplay/Driver"
+    driver_path: str = "vendor/Whisplay/runtime"
     transfer_quantization: str = "rgb565"
     spi_speed_hz: int | None = None
     input_poll_interval: float = 0.005

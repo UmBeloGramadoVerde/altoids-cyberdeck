@@ -1,12 +1,12 @@
 [display]
-backend = "whisplay"
+backend = "auto"
 width = 280
 height = 240
 fps_active = 12
 fps_idle = 1
 backlight_brightness = 1.0
 rotation = 270
-driver_path = "vendor/Whisplay/Driver"
+driver_path = "vendor/Whisplay/runtime"
 transfer_quantization = "rgb332"
 input_poll_interval = 0.005
 split_dirty_regions = false

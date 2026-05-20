@@ -53,7 +53,7 @@ class Display:
         self._led_lock = threading.Lock()
 
         backend_name = backend.lower()
-        candidates = [backend_name] if backend_name != "auto" else ["whisplay", "displayhatmini"]
+        candidates = [backend_name] if backend_name != "auto" else ["displayhatmini", "whisplay"]
         for candidate in candidates:
             if candidate == "whisplay" and self._init_whisplay():
                 break
@@ -68,7 +68,10 @@ class Display:
             return False
         try:
             self._driver = displayhatmini
-            self._backend = displayhatmini.DisplayHATMini()
+            hat_w = displayhatmini.DisplayHATMini.WIDTH
+            hat_h = displayhatmini.DisplayHATMini.HEIGHT
+            self._displayhatmini_buffer = Image.new("RGB", (hat_w, hat_h))
+            self._backend = displayhatmini.DisplayHATMini(self._displayhatmini_buffer)
             self._backend_name = "displayhatmini"
             self._apply_spi_speed()
             self._backend.set_backlight(self.brightness)
@@ -85,12 +88,20 @@ class Display:
             driver_root = str(driver_path)
             if driver_root not in sys.path:
                 sys.path.insert(0, driver_root)
+        WhisPlayBoard = None
+        # Try new layout first (runtime/whisplay.py -> WhisplayBoard)
         try:
-            from WhisPlay import WhisPlayBoard
-        except ModuleNotFoundError as exc:
-            searched = str(driver_path) if driver_path is not None else "no existing driver_path"
-            self._backend_init_errors["whisplay"] = f"{type(exc).__name__}: {exc}; searched {searched}"
-            return False
+            from whisplay import WhisplayBoard as WhisPlayBoard
+        except ModuleNotFoundError:
+            pass
+        # Fall back to old layout (Driver/WhisPlay.py -> WhisPlayBoard)
+        if WhisPlayBoard is None:
+            try:
+                from WhisPlay import WhisPlayBoard
+            except ModuleNotFoundError as exc:
+                searched = str(driver_path) if driver_path is not None else "no existing driver_path"
+                self._backend_init_errors["whisplay"] = f"{type(exc).__name__}: {exc}; searched {searched}"
+                return False
         try:
             self._driver = WhisPlayBoard
             self._backend = WhisPlayBoard()
@@ -117,7 +128,17 @@ class Display:
                 self._backend.draw_image(left, top, right - left, bottom - top, payload)
             return
         if self._backend is not None:
-            self._backend.display(image)
+            if self._backend_name == "displayhatmini":
+                frame = image if image.mode == "RGB" else image.convert("RGB")
+                frame = frame.transpose(Image.Transpose.ROTATE_180)
+                hat_w = self._displayhatmini_buffer.width
+                hat_h = self._displayhatmini_buffer.height
+                if frame.size != (hat_w, hat_h):
+                    frame = frame.resize((hat_w, hat_h))
+                self._displayhatmini_buffer.paste(frame)
+                self._backend.display()
+            else:
+                self._backend.display(image)
             return
         now = time.monotonic()
         if now - self._last_mock_save_at < 0.5:
@@ -218,9 +239,12 @@ class Display:
         candidates: list[Path] = []
         if self.driver_path is not None:
             candidates.append(self.driver_path)
+        # New repo layout: runtime/whisplay.py
+        candidates.append(Path("/opt/altoids/vendor/Whisplay/runtime"))
+        # Old repo layout: Driver/WhisPlay.py
         candidates.append(Path("/opt/altoids/vendor/Whisplay/Driver"))
         for candidate in candidates:
-            if (candidate / "WhisPlay.py").exists():
+            if (candidate / "whisplay.py").exists() or (candidate / "WhisPlay.py").exists():
                 return candidate
         return None
 
