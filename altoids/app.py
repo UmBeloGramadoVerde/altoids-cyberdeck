@@ -23,6 +23,7 @@ from .codex_session import CodexSessionStore
 from .display import Display
 from .input_buttons import ButtonEvent, ButtonInput
 from .input_keyboard import KeyboardEvent, KeyboardInput
+from .notes import NoteStore
 from .sleep import SleepManager
 from .terminal import TmuxManager
 from .voice import VoiceManager, VoiceResult
@@ -65,6 +66,7 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     CommandSpec("q", "home", "CMD+Q", "screen", target="home", hint="Q"),
     CommandSpec("t", "terminal", "CMD+T", "screen", target="term", hint="T"),
     CommandSpec("s", "system/settings", "CMD+S", "screen", target="system", hint="S"),
+    CommandSpec("i", "notes", "CMD+I", "screen", target="notes", hint="I"),
     CommandSpec("g", "games", "CMD+G", "screen", target="emu", hint="G"),
     CommandSpec("r", "tinscope", "CMD+R", "screen", target="tinscope", hint="R"),
     CommandSpec("[", "previous tmux window", "CMD+[", "tmux_previous", contexts=("term",), hint="[", help_page="TMUX"),
@@ -113,6 +115,7 @@ class AltoidsApp:
             passwords=dict(config.wifi.passwords),
             scan_cache_seconds=config.wifi.scan_cache_seconds,
         )
+        self.notes = NoteStore(config.root_dir)
         self.button_input = ButtonInput(self.handle_button_event)
         self.keyboard_input = KeyboardInput()
         self.bluetooth_monitor = BluetoothMonitor()
@@ -120,7 +123,7 @@ class AltoidsApp:
         self.sleep_manager = SleepManager(config.sleep.idle_seconds)
         self.accents = AccentManager(self.display, config.audio, config.led)
         self.voice = VoiceManager(config.voice, enabled=config.voice.enabled and self.display.is_whisplay)
-        self.screen_order = ["home", "tinscope", "emu", "term", "system"]
+        self.screen_order = ["home", "notes", "tinscope", "emu", "term", "system"]
         context = ScreenContext(app=self)
         self._screen_context = context
         self.screens: dict[str, Screen] = {
@@ -131,6 +134,7 @@ class AltoidsApp:
             "emu": self._create_emulation_screen,
             "term": self._create_terminal_screen,
             "system": self._create_system_screen,
+            "notes": self._create_notes_screen,
         }
         self.active_screen_name = "home"
         self.needs_redraw = True
@@ -226,6 +230,10 @@ class AltoidsApp:
     def _create_system_screen(self) -> Screen:
         from .ui.system import SystemScreen
         return SystemScreen(self._screen_context)
+
+    def _create_notes_screen(self) -> Screen:
+        from .ui.notes import NotesScreen
+        return NotesScreen(self._screen_context)
 
     @staticmethod
     def _create_web_viewer(host: str, port: int) -> WebViewer:
@@ -345,6 +353,9 @@ class AltoidsApp:
         if self.active_screen_name == "term":
             self.tmux.paste_text(text)
             return True
+        inserter = getattr(self.active_screen, "insert_voice_text", None)
+        if callable(inserter):
+            return bool(inserter(text))
         return False
 
     def _set_voice_notice(self, message: str) -> None:
@@ -530,7 +541,7 @@ class AltoidsApp:
                 title="GLOBAL",
                 rows=[
                     ("toggle help", "F1 / Ctrl+H / Ctrl+/"),
-                    ("jump to help page", "Help: 1-5"),
+                    ("jump to help page", "Help: 1-6"),
                     ("prev/next help page", "Help: Left/Right"),
                     ("scroll help page", "Help: Up/Down"),
                     ("voice dictation", "Hold CMD+Space"),
@@ -585,6 +596,19 @@ class AltoidsApp:
                 ],
             ),
             HelpPage(
+                title="NOTES",
+                rows=[
+                    *self._command_help_rows("NOTES"),
+                    ("type into draft", "Text keys"),
+                    ("save draft", "Enter / X"),
+                    ("voice quick save", "Hold CMD+Space"),
+                    ("edit draft", "Backspace"),
+                    ("clear draft", "Ctrl+L / Y"),
+                    ("select recent", "Up/Down / A/B"),
+                    ("home", "Esc / long Y"),
+                ],
+            ),
+            HelpPage(
                 title="SYSTEM",
                 rows=[
                     ("expand system panel", "S"),
@@ -612,6 +636,8 @@ class AltoidsApp:
             return [(spec.action, spec.combo) for spec in COMMAND_SPECS if spec.target == "emu"]
         if page_title == "TINSCOPE":
             return [(spec.action, spec.combo) for spec in COMMAND_SPECS if spec.target == "tinscope"]
+        if page_title == "NOTES":
+            return [(spec.action, spec.combo) for spec in COMMAND_SPECS if spec.target == "notes"]
         return [
             (spec.action, spec.combo)
             for spec in COMMAND_SPECS
@@ -700,6 +726,7 @@ class AltoidsApp:
         page_title = {
             "home": "GLOBAL",
             "term": "TMUX",
+            "notes": "NOTES",
             "emu": "EMU",
             "tinscope": "TINSCOPE",
             "system": "SYSTEM",

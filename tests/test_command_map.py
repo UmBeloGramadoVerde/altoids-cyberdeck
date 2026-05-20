@@ -33,6 +33,7 @@ class CommandMapTest(unittest.TestCase):
         app.active_screen_name = active_screen
         app.screens = {
             "home": object(),
+            "notes": object(),
             "term": object(),
             "system": object(),
             "emu": object(),
@@ -57,6 +58,8 @@ class CommandMapTest(unittest.TestCase):
         self.assertEqual(app.active_screen_name, "term")
         self.assertTrue(self.command(app, "s"))
         self.assertEqual(app.active_screen_name, "system")
+        self.assertTrue(self.command(app, "i"))
+        self.assertEqual(app.active_screen_name, "notes")
         self.assertTrue(self.command(app, "g"))
         self.assertEqual(app.active_screen_name, "emu")
 
@@ -81,7 +84,7 @@ class CommandMapTest(unittest.TestCase):
 
         hints = app._command_mode_hints()
 
-        for expected in ["H", "Q", "T", "S", "G", "R", "[", "]", "N", "K", "0-9"]:
+        for expected in ["H", "Q", "T", "S", "I", "G", "R", "[", "]", "N", "K", "0-9"]:
             self.assertIn(expected, hints)
         self.assertNotIn("V", hints)
         self.assertNotIn("W", hints)
@@ -94,6 +97,7 @@ class CommandMapTest(unittest.TestCase):
 
         self.assertEqual(global_rows["terminal"], "CMD+T")
         self.assertEqual(global_rows["system/settings"], "CMD+S")
+        self.assertEqual(global_rows["notes"], "CMD+I")
         self.assertEqual(emu_rows["games"], "CMD+G")
         self.assertNotIn("CMD+V", global_rows.values())
         self.assertNotIn("CMD+V", emu_rows.values())

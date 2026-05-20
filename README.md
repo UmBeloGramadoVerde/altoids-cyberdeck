@@ -6,6 +6,7 @@ This repository currently contains the first working scaffold of that system:
 
 - a multi-screen UI rendered with `Pillow`
 - a home dashboard with an animated mascot and rotating status messages
+- a quick note capture screen with typed and voice input
 - a tmux-backed terminal screen
 - a system screen with device stats and Wi‑Fi controls
 - TinScope, a keyboard-reachable network field agent with persisted reports
@@ -38,6 +39,7 @@ altoids/
 │   ├── input_buttons.py
 │   ├── input_keyboard.py
 │   ├── messages.py
+│   ├── notes.py
 │   ├── renderer.py
 │   ├── sleep.py
 │   ├── sprites.py
@@ -46,6 +48,7 @@ altoids/
 │   └── ui/
 │       ├── base.py
 │       ├── home.py
+│       ├── notes.py
 │       ├── system.py
 │       ├── term.py
 │       └── widgets.py
@@ -88,16 +91,19 @@ Shows:
 - current time
 - uptime
 - rotating status message
+- Tamagotchi-style mascot mood, action, and care meters
 - Bluetooth connection indicator
 - terminal window count
 - CPU temperature
 
 Current controls:
 
-- `A`: previous message
-- `B`: next message
-- `X`: open terminal
-- `Y`: open system screen
+- `A` / `F`: feed mascot
+- `B` / `P` / `Space`: play with mascot
+- `long A` / `Left`: previous message
+- `long B` / `Right`: next message
+- `X` / `T`: open terminal
+- `Y` / `S`: open system screen
 
 Global keyboard help is available from any screen with `F1`, `Ctrl+H`, `Ctrl+/`, or `CMD+H`. The overlay opens to the current screen's help page unless that screen already has a remembered help page. Use `1`..`5` to jump directly to a help page, `Left` / `Right`, `Up` / `Down`, `Tab`, or `Space` to switch pages, and `Esc`, `Enter`, `F1`, `Ctrl+H`, `Ctrl+/`, or `H` to close it.
 
@@ -138,9 +144,28 @@ Keyboard behavior on the terminal screen:
 - `CMD+1`..`CMD+9`: jump to tmux windows 1 through 9
 - `CMD+0`: jump to tmux window 10
 - `CMD+N` / `CMD+K`: create / close tmux window
-- `CMD+Q` / `CMD+T` / `CMD+S` / `CMD+G` / `CMD+R`: jump to home / terminal / system-settings / games / TinScope
+- `CMD+Q` / `CMD+T` / `CMD+S` / `CMD+I` / `CMD+G` / `CMD+R`: jump to home / terminal / system-settings / notes / games / TinScope
 
 Note: the plan called for `pyte`-based ANSI rendering, but the current code strips ANSI sequences and renders plain text via [altoids/renderer.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/renderer.py:1). That is a deliberate simplification for the first pass.
+
+### Notes
+
+Implemented in [altoids/ui/notes.py](/home/kayna/altoids-cyberdeck/altoids/ui/notes.py:1) with persistence in [altoids/notes.py](/home/kayna/altoids-cyberdeck/altoids/notes.py:1).
+
+The Notes screen is built for quick capture: type directly into the draft area and press `Enter` or `X` to save. Recent notes are stored newest-first under `.runtime/notes/quick-notes.json`.
+
+Voice capture uses the global `CMD+Space` dictation trigger. On the Notes screen, a voice result saves immediately when the draft is empty; if a typed draft already exists, the transcript is appended to that draft.
+
+Current controls:
+
+- `CMD+I`: open Notes
+- text keys: add to draft
+- `Enter` / `X`: save draft
+- hold `CMD+Space`: voice capture
+- `Backspace`: edit draft
+- `Ctrl+L` / `Y`: clear draft
+- `Up` / `Down` or `A` / `B`: select recent notes
+- `Esc` / long `Y`: return home
 
 ### System
 
