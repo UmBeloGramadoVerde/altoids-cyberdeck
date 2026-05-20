@@ -56,6 +56,7 @@ repair-runtime:
 runtime-sync:
 	sudo install -d -m 755 $(RUNTIME_BIN_DIR)
 	sudo install -m 755 $(CURDIR)/config/cdx $(RUNTIME_BIN_DIR)/cdx
+	sudo install -m 755 $(CURDIR)/config/altoids-runtime.py $(RUNTIME_BIN_DIR)/altoids-runtime
 
 tmux-apply:
 	tmux start-server
