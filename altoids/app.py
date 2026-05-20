@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import shutil
 import socket
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import Callable
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -28,13 +30,10 @@ from .sleep import SleepManager
 from .terminal import TmuxManager
 from .voice import VoiceManager, VoiceResult
 from .wifi import WifiManager
-from .ui.base import Screen, ScreenContext
-from .ui.home import HomeScreen
+from .webviewer import WebViewer
+from .ui import EmulationScreen, HomeScreen, Screen, ScreenContext, SystemScreen, TerminalScreen, TinScopeScreen
 from .ui.widgets import draw_label
 from .ui.widgets import draw_button_bar
-
-if TYPE_CHECKING:
-    from .webviewer import WebViewer
 
 
 @dataclass(slots=True)
@@ -47,6 +46,44 @@ class TimedValue:
 class HelpPage:
     title: str
     rows: list[tuple[str, str]]
+
+
+class HealthReporter:
+    def __init__(self, path: Path, release: str, interval_seconds: float = 1.0) -> None:
+        self.path = path
+        self.release = release
+        self.interval_seconds = interval_seconds
+        self.pid = os.getpid()
+        self.started_at = time.time()
+        self.ready_at: float | None = None
+        self._last_write_at = 0.0
+
+    def mark_ready(self) -> None:
+        if self.ready_at is None:
+            self.ready_at = time.time()
+        self._write(force=True)
+
+    def beat(self) -> None:
+        self._write(force=False)
+
+    def _write(self, force: bool) -> None:
+        now = time.monotonic()
+        if not force and now - self._last_write_at < self.interval_seconds:
+            return
+        self._last_write_at = now
+        payload: dict[str, object] = {
+            "pid": self.pid,
+            "release": self.release,
+            "ready": self.ready_at is not None,
+            "started_at": self.started_at,
+            "heartbeat_at": time.time(),
+        }
+        if self.ready_at is not None:
+            payload["ready_at"] = self.ready_at
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temp_path = self.path.with_name(f".{self.path.name}.{self.pid}.tmp")
+        temp_path.write_text(json.dumps(payload, sort_keys=True))
+        temp_path.replace(self.path)
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,7 +156,7 @@ class AltoidsApp:
         self.button_input = ButtonInput(self.handle_button_event)
         self.keyboard_input = KeyboardInput()
         self.bluetooth_monitor = BluetoothMonitor()
-        self.bluetooth_status = self.bluetooth_monitor.status
+        self.bluetooth_status = self.bluetooth_monitor.poll()
         self.sleep_manager = SleepManager(config.sleep.idle_seconds)
         self.accents = AccentManager(self.display, config.audio, config.led)
         self.voice = VoiceManager(config.voice, enabled=config.voice.enabled and self.display.is_whisplay)
@@ -144,9 +181,8 @@ class AltoidsApp:
         self.help_page_index = 0
         self.help_page_index_by_context: dict[str, int] = {}
         self.help_scroll_offsets: dict[int, int] = {}
-        self.web_viewer: WebViewer | None = self._create_web_viewer(web_host, web_port) if web_viewer else None
+        self.web_viewer = WebViewer(host=web_host, port=web_port) if web_viewer else None
         self._active_fps = max(config.display.fps_active, 20) if self.web_viewer is not None else config.display.fps_active
-        self._first_frame_rendered = False
         self._boot_accent_fired = False
         self._last_input_event_at: float | None = None
         self._last_input_to_render_ms: float | None = None
@@ -570,8 +606,7 @@ class AltoidsApp:
                     ("scroll details", "Details: A/B"),
                     ("details back", "Details: Q/Esc/Y"),
                     ("refresh rom list", "R"),
-                    ("chip8 keys", "Run: 1234/QWER/ASDF/ZXCV"),
-                    ("chip8 aliases", "Run: arrows, Space/Enter, Shift+hex"),
+                    ("chip8 keys", "Run: 0-9 and A-F"),
                     ("button controls", "Run: A/B/X"),
                     ("return to carts", "Run: hold Esc / long Y"),
                     ("home", "Picker: Q / Esc / Y"),
@@ -611,13 +646,13 @@ class AltoidsApp:
             HelpPage(
                 title="SYSTEM",
                 rows=[
-                    ("expand system panel", "S"),
-                    ("expand perf panel", "P"),
+                    ("expand core panel", "C"),
+                    ("expand load panel", "O"),
                     ("expand link panel", "L"),
                     ("expand wireless", "W"),
                     ("expand rig panel", "R"),
-                    ("expand audio panel", "A"),
-                    ("back to overview", "same key / Esc"),
+                    ("expand cues panel", "U"),
+                    ("back to overview", "Detail: Esc"),
                     ("wifi pick network", "Wireless: Up/Down"),
                     ("wifi scan", "Wireless: R"),
                     ("wifi join", "Wireless: Enter"),
@@ -810,7 +845,7 @@ class AltoidsApp:
         if self.command_mode_active:
             hints = self._command_mode_hints()
             hint_text = " ".join(hints)
-            hint_width = min(len(hint_text) * 7 + 10, self.config.display.width - 60)
+            hint_width = min(len(hint_text) * 7 + 10, 220)
             self.draw.rounded_rectangle((6, 6, hint_width, 26), radius=4, outline=DIM, fill=BG)
             draw_label(self.draw, 12, 11, hint_text, self.font, DIM)
             cmd_left = hint_width + 4
@@ -843,7 +878,7 @@ class AltoidsApp:
     def input_render_pending(self) -> bool:
         return self._last_input_event_at is not None
 
-    def run(self, max_frames: int | None = None) -> int:
+    def run(self, max_frames: int | None = None, health_reporter: HealthReporter | None = None) -> int:
         frame_count = 0
         last = time.monotonic()
         try:
@@ -854,9 +889,8 @@ class AltoidsApp:
 
                 for event in self.button_input.poll():
                     self.handle_button_event(event)
-                if self._first_frame_rendered:
-                    for event in self.keyboard_input.poll():
-                        self.handle_keyboard_event(event)
+                for event in self.keyboard_input.poll():
+                    self.handle_keyboard_event(event)
                 if self.web_viewer is not None:
                     web_events = self.web_viewer.poll_events()
                     for event in web_events.button_events:
@@ -866,7 +900,7 @@ class AltoidsApp:
                 for result in self.voice.update():
                     self._handle_voice_result(result)
 
-                if self._first_frame_rendered and not self.input_render_pending:
+                if not self.input_render_pending:
                     self.bluetooth_status = self.bluetooth_monitor.poll()
                 if self.command_mode_deadline and not self.command_mode_active:
                     self.command_mode_deadline = 0.0
@@ -881,8 +915,9 @@ class AltoidsApp:
 
                 if not self.sleep_manager.sleeping and self.needs_redraw:
                     self.render()
-                    self._first_frame_rendered = True
                     frame_count += 1
+                    if health_reporter is not None and frame_count == 1:
+                        health_reporter.mark_ready()
                     if not self._boot_accent_fired:
                         self.accents.trigger("boot_complete")
                         self._boot_accent_fired = True
@@ -890,6 +925,8 @@ class AltoidsApp:
                 if max_frames is not None and frame_count >= max_frames:
                     return 0
 
+                if health_reporter is not None:
+                    health_reporter.beat()
                 target_fps = self._active_fps if not self.sleep_manager.sleeping else self.config.display.fps_idle
                 frame_interval = 1.0 / max(1, target_fps)
                 input_poll_interval = max(0.001, self.config.display.input_poll_interval)
@@ -911,6 +948,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", default=None, help="Path to altoids.toml")
     parser.add_argument("--frames", type=int, default=None, help="Render this many frames and exit")
     parser.add_argument("--self-test", action="store_true", help="Initialize the app, render one frame, and exit")
+    parser.add_argument("--health-file", default=None, help="Path to a JSON health/heartbeat file for supervisor use")
     parser.add_argument("--web-viewer", action="store_true", help="Serve the UI over HTTP for browser-based viewing and control")
     parser.add_argument("--web-host", default="127.0.0.1", help="Host/interface for the web viewer")
     parser.add_argument("--web-port", type=int, default=8765, help="Port for the web viewer")
@@ -925,7 +963,11 @@ def main(argv: list[str] | None = None) -> int:
         # Force the mock backend so staged validation doesn't contend with the live app.
         config.display.backend = "mock"
     app = AltoidsApp(config=config, web_viewer=args.web_viewer, web_host=args.web_host, web_port=args.web_port)
+    health_reporter = HealthReporter(
+        Path(args.health_file),
+        os.environ.get("ALTOIDS_RELEASE_ID", "dev"),
+    ) if args.health_file else None
     if app.web_viewer is not None:
         print(f"Web viewer available at {app.web_viewer.base_url}")
     max_frames = 1 if args.self_test and args.frames is None else args.frames
-    return app.run(max_frames=max_frames)
+    return app.run(max_frames=max_frames, health_reporter=health_reporter)

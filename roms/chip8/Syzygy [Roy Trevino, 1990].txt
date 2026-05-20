@@ -53,10 +53,5 @@ Fine print (borrowed from Andreas Gustafsson, author of CHIP-48):
   WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
   PURPOSE.
 
-Roy
-
-  --------------------------------------------------------------
-  Roy Trevino                                        Intel Corp.
-  E-mail: rtrevino@sedona.intel.com          Tel: (602) 554 2816
-  UUCP:  decwrl!apple!oliveb!orc!inews!rtrevino@sedona.intel.com
+Roy Trevino
 

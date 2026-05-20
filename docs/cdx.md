@@ -32,7 +32,6 @@ Useful flags:
 
 ```bash
 cdx --cwd /path/to/project
-cdx -n
 cdx --thread-id <thread-id>
 cdx --codex-bin /path/to/codex
 cdx --home-override /path/to/home
@@ -41,13 +40,12 @@ cdx --xdg-state-home /path/to/state-home
 
 Notes:
 
-- `-n` / `--new` skips the startup picker and starts a new thread immediately.
 - `--thread-id` skips the startup picker and resumes that exact thread.
 - `--home-override` and `--xdg-state-home` are mainly for controlled environments where Codex state must live somewhere specific.
 
 ## Startup Flow
 
-On launch, `cdx` opens a small startup screen unless `-n`, `--new`, or `--thread-id` is passed:
+On launch, `cdx` opens a small startup screen:
 
 - `new thread`
 - a list of recent threads in the current cwd
@@ -115,10 +113,8 @@ Current actions:
 - `2`: `acceptForSession`
 - `3`: `decline`
 - `4`: `decline`, then prepare a redirect message
-- `5`: enter or edit a masked OS password for the pending command approval
 
 `cdx` keeps the approval visible until the server confirms `serverRequest/resolved`.
-For command execution approvals, the staged password is sent as `userPassword` with the approval response and then cleared locally.
 
 ## Feed Design
 

@@ -12,8 +12,6 @@ class WifiNetwork:
     signal: int
     security: str
     active: bool = False
-    bssid: str = ""
-    channel: str = ""
 
     @property
     def open(self) -> bool:
@@ -39,7 +37,6 @@ class WifiManager:
     _last_scan_at: float = 0.0
     _last_status_at: float = 0.0
     _last_message: str = "wifi idle"
-    _last_error: str = ""
 
     @property
     def available(self) -> bool:
@@ -49,21 +46,12 @@ class WifiManager:
     def last_message(self) -> str:
         return self._last_message
 
-    @property
-    def last_error(self) -> str:
-        return self._last_error
-
     def _run(self, *args: str) -> subprocess.CompletedProcess[str]:
-        command = ["nmcli", *args]
-        try:
-            return subprocess.run(
-                command,
-                text=True,
-                capture_output=True,
-                timeout=20,
-            )
-        except (OSError, subprocess.SubprocessError) as exc:
-            return subprocess.CompletedProcess(command, 1, "", str(exc))
+        return subprocess.run(
+            ["nmcli", *args],
+            text=True,
+            capture_output=True,
+        )
 
     def status(self, allow_refresh: bool = True) -> WifiStatus:
         if not self.available:
@@ -75,9 +63,8 @@ class WifiManager:
         if not allow_refresh and self._cached_status is not None:
             return self._cached_status
 
-        proc = self._run("-m", "multiline", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device", "show")
+        proc = self._run("-m", "multiline", "-f", "DEVICE,TYPE,STATE,CONNECTION,SIGNAL", "device", "show")
         if proc.returncode != 0:
-            self._last_error = self._command_error(proc, "wifi status failed")
             return WifiStatus(device=self.device, state="status error")
 
         for record in self._parse_multiline_records(proc.stdout):
@@ -86,12 +73,12 @@ class WifiManager:
                 continue
             state = record.get("GENERAL.STATE", "")
             connection = record.get("GENERAL.CONNECTION", "")
+            signal = self._parse_int(record.get("AP1.SIGNAL", "0"))
             connected = "connected" in state
-            active_network = self._active_network_from_nmcli() if connected else None
             status = WifiStatus(
                 connected=connected,
-                ssid=active_network.ssid if active_network is not None else self._clean_network_name(connection),
-                signal=active_network.signal if active_network is not None else 0,
+                ssid="" if connection in {"--", ""} else connection,
+                signal=signal,
                 state=state.split(" ", 1)[-1] if " " in state else state,
                 device=record.get("GENERAL.DEVICE", self.device),
             )
@@ -107,7 +94,6 @@ class WifiManager:
         if not self.available:
             self._cached_networks = []
             self._last_message = "nmcli not installed"
-            self._last_error = self._last_message
             return []
 
         now = time.monotonic()
@@ -116,52 +102,51 @@ class WifiManager:
         if not allow_refresh:
             return self._cached_networks
 
-        self._run("radio", "wifi", "on")
-        proc = self._list_wifi(rescan=force)
+        list_args = ["-m", "multiline", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "device", "wifi", "list"]
+        if force:
+            list_args.extend(["--rescan", "yes"])
+        else:
+            self._run("device", "wifi", "rescan")
+        proc = self._run(*list_args)
         if proc.returncode != 0:
-            self._last_error = self._command_error(proc, "wifi scan failed")
-            self._last_message = self._last_error
+            self._last_message = "wifi scan failed"
             return self._cached_networks
 
         networks: list[WifiNetwork] = []
+        seen: set[str] = set()
         for record in self._parse_multiline_records(proc.stdout):
             in_use = record.get("IN-USE", "")
-            ssid = self._clean_network_name(record.get("SSID", ""))
+            ssid = record.get("SSID", "")
             signal = record.get("SIGNAL", "0")
             security = record.get("SECURITY", "")
-            if not ssid:
+            if not ssid or ssid in seen:
                 continue
+            seen.add(ssid)
             networks.append(
                 WifiNetwork(
                     ssid=ssid,
                     signal=self._parse_int(signal),
                     security=security,
                     active=in_use.strip() == "*",
-                    bssid=record.get("BSSID", ""),
-                    channel=record.get("CHAN", ""),
                 )
             )
-        networks.sort(key=lambda item: (not item.active, -item.signal, item.ssid.lower(), item.bssid))
+        networks.sort(key=lambda item: (not item.active, -item.signal, item.ssid.lower()))
         self._cached_networks = networks
         self._last_scan_at = now
         self._last_message = f"scan ok {len(networks)} nets"
-        self._last_error = ""
         return networks
 
     def connect(self, network: WifiNetwork, password: str | None = None) -> tuple[bool, str]:
         if not self.available:
             self._last_message = "nmcli not installed"
-            self._last_error = self._last_message
             return False, self._last_message
 
-        self._run("radio", "wifi", "on")
         args = ["device", "wifi", "connect", network.ssid]
         chosen_password = password if password is not None else self.passwords.get(network.ssid)
         if chosen_password:
             args.extend(["password", chosen_password])
         elif not network.open:
             self._last_message = f"missing password for {network.ssid}"
-            self._last_error = self._last_message
             return False, self._last_message
 
         proc = self._run(*args)
@@ -169,47 +154,13 @@ class WifiManager:
             if chosen_password:
                 self.passwords[network.ssid] = chosen_password
             self._last_message = f"connected {network.ssid}"
-            self._last_error = ""
             self._cached_status = None
             self.scan(force=True)
             return True, self._last_message
 
-        stderr = self._command_error(proc, "wifi connect failed")
+        stderr = proc.stderr.strip() or proc.stdout.strip() or "wifi connect failed"
         self._last_message = stderr
-        self._last_error = stderr
         return False, stderr
-
-    def _active_network_from_nmcli(self) -> WifiNetwork | None:
-        proc = self._run("-m", "multiline", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "device", "wifi", "list", "--rescan", "no")
-        if proc.returncode != 0:
-            return None
-        for record in self._parse_multiline_records(proc.stdout):
-            if record.get("IN-USE", "").strip() != "*":
-                continue
-            ssid = self._clean_network_name(record.get("SSID", ""))
-            if not ssid:
-                continue
-            return WifiNetwork(
-                ssid=ssid,
-                signal=self._parse_int(record.get("SIGNAL", "0")),
-                security=record.get("SECURITY", ""),
-                active=True,
-            )
-        return None
-
-    def _list_wifi(self, *, rescan: bool) -> subprocess.CompletedProcess[str]:
-        args = [
-            "-m",
-            "multiline",
-            "-f",
-            "IN-USE,BSSID,SSID,CHAN,SIGNAL,SECURITY",
-            "device",
-            "wifi",
-            "list",
-            "--rescan",
-            "yes" if rescan else "no",
-        ]
-        return self._run(*args)
 
     @staticmethod
     def _parse_multiline_records(output: str) -> list[dict[str, str]]:
@@ -223,11 +174,7 @@ class WifiManager:
                     current = {}
                 continue
             key, _, value = line.partition(":")
-            key = key.strip()
-            if current and (key in current or key == "IN-USE"):
-                records.append(current)
-                current = {}
-            current[key] = value.strip()
+            current[key.strip()] = value.strip()
         if current:
             records.append(current)
         return records
@@ -236,13 +183,3 @@ class WifiManager:
     def _parse_int(value: str) -> int:
         digits = "".join(char for char in value if char.isdigit())
         return int(digits or "0")
-
-    @staticmethod
-    def _clean_network_name(value: str) -> str:
-        value = value.strip()
-        return "" if value in {"", "--"} else value
-
-    @staticmethod
-    def _command_error(proc: subprocess.CompletedProcess[str], fallback: str) -> str:
-        message = proc.stderr.strip() or proc.stdout.strip() or fallback
-        return " ".join(message.split())

@@ -46,7 +46,6 @@ SECURITY_HEADERS = (
     "x-content-type-options",
     "referrer-policy",
 )
-DEFAULT_STATE_DIR = Path(".runtime/tinscope")
 
 
 @dataclass(slots=True)
@@ -112,8 +111,7 @@ class TinScopeScreen(Screen):
         self._worker: threading.Thread | None = None
         self._blink = 0.0
         self._next_item_id = 1
-        self._state_file = self._resolve_state_file()
-        self._state_dir = self._state_file.parent
+        self._state_dir = Path(os.environ.get("TINSCOPE_STATE_DIR", ".runtime/tinscope"))
         self._load_state()
 
     def update(self, dt: float) -> bool:
@@ -903,10 +901,10 @@ class TinScopeScreen(Screen):
             "feed": [asdict(item) for item in self.feed[-20:]],
             "snapshot": asdict(self.snapshot),
         }
-        self._atomic_write_json(self._state_file, payload)
+        self._atomic_write_json(self._state_dir / "state.json", payload)
 
     def _load_state(self) -> None:
-        path = self._state_file
+        path = self._state_dir / "state.json"
         if not path.exists():
             return
         try:
@@ -974,28 +972,9 @@ class TinScopeScreen(Screen):
         return self._state_dir / "networks" / self._slug(network_id or "unknown")
 
     @staticmethod
-    def _resolve_state_file() -> Path:
-        explicit_file = os.environ.get("TINSCOPE_STATE_FILE")
-        if explicit_file:
-            return Path(explicit_file).expanduser()
-
-        explicit_dir = os.environ.get("TINSCOPE_STATE_DIR")
-        if explicit_dir:
-            state_dir = Path(explicit_dir).expanduser()
-            if state_dir.suffix == ".json":
-                state_dir = state_dir.parent
-            return state_dir / "state.json"
-
-        runtime_root = os.environ.get("ALTOIDS_RUNTIME_STATE") or os.environ.get("ALTOIDS_RUNTIME_RUN")
-        if runtime_root:
-            return Path(runtime_root).expanduser() / "tinscope" / "state.json"
-
-        return DEFAULT_STATE_DIR / "state.json"
-
-    @staticmethod
     def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        temp = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+        temp = path.with_name(f".{path.name}.tmp")
         temp.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
         temp.replace(path)
 

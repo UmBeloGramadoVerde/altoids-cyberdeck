@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 from typing import Any
 
-from PIL import Image, ImageDraw, ImageOps, ImageSequence
+from PIL import Image, ImageDraw
 
 from ..chip8 import Chip8, Chip8Error
 from ..colors import ACCENT, BG, COOL, DANGER, DIM, FG, INFO, SURFACE_GRID, SURFACE_INSET, SURFACE_PANEL, WARN
@@ -33,7 +33,6 @@ class Cartridge:
     data: bytes
     notes: str = ""
     metadata: dict[str, Any] | None = None
-    preview_path: Path | None = None
     preload: tuple[tuple[int, bytes], ...] = ()
 
 
@@ -45,43 +44,14 @@ class EmulationScreen(Screen):
     key_hold_seconds = 0.18
     timer_hz = 60.0
     escape_hold_seconds = 0.7
-    release_suppression_seconds = 1.0
-    preview_frame_hz = 6.0
-    max_preview_frames = 24
 
-    keyboard_map = {
-        "1": 0x1,
-        "2": 0x2,
-        "3": 0x3,
-        "4": 0xC,
-        "q": 0x4,
-        "w": 0x5,
-        "e": 0x6,
-        "r": 0xD,
-        "a": 0x7,
-        "s": 0x8,
-        "d": 0x9,
-        "f": 0xE,
-        "z": 0xA,
-        "x": 0x0,
-        "c": 0xB,
-        "v": 0xF,
-        "up": 0x2,
-        "left": 0x4,
-        "right": 0x6,
-        "down": 0x8,
-        " ": 0x5,
-        "enter": 0x5,
-    }
-    direct_hex_raw_keys = {f"KEY_KP{index}": index for index in range(10)} | {
-        f"Numpad{index}": index for index in range(10)
-    }
-    shift_hex_raw_keys = {f"KEY_{index}": index for index in range(10)} | {
-        f"Digit{index}": index for index in range(10)
-    } | {
-        f"KEY_{digit}": int(digit, 16) for digit in "ABCDEF"
-    } | {
-        f"Key{digit}": int(digit, 16) for digit in "ABCDEF"
+    keyboard_map = {str(index): index for index in range(10)} | {
+        "a": 0xA,
+        "b": 0xB,
+        "c": 0xC,
+        "d": 0xD,
+        "e": 0xE,
+        "f": 0xF,
     }
 
     navigation_keys = {
@@ -104,6 +74,10 @@ class EmulationScreen(Screen):
         "X": 0x5,
     }
 
+    rom_key_overrides = {
+        "chickenScratch": {" ": 0x5},
+    }
+
     def __init__(self, context: ScreenContext) -> None:
         super().__init__(context)
         self.chip8 = Chip8()
@@ -115,14 +89,11 @@ class EmulationScreen(Screen):
         self.blink = 0.0
         self.timer_accumulator = 0.0
         self.held_keys: dict[int, float] = {}
-        self.active_runtime_key_ids: set[str] = set()
-        self.suppressed_runtime_key_ids: dict[str, float] = {}
         self.error_message = ""
         self.detail_scroll = 0
         self.run_notice = ""
         self.run_notice_until = 0.0
         self.escape_armed_at: float | None = None
-        self.preview_cache: dict[tuple[str, int, tuple[int, int]], tuple[float, tuple[Image.Image, ...]]] = {}
         self.refresh_cartridges()
 
     def refresh_cartridges(self) -> None:
@@ -154,7 +125,6 @@ class EmulationScreen(Screen):
                         data=data,
                         notes=self._metadata_notes(path, metadata),
                         metadata=metadata,
-                        preview_path=self._metadata_preview_path(path, metadata),
                     )
                 )
         self.cartridges = [cartridges[0], *sorted(cartridges[1:], key=lambda cart: cart.title.lower())]
@@ -163,10 +133,12 @@ class EmulationScreen(Screen):
 
     def update(self, dt: float) -> bool:
         self.blink = (self.blink + dt) % 1.0
-        self._expire_suppressed_runtime_keys()
         self._release_expired_keys()
         if self.escape_armed_at is not None and time.monotonic() - self.escape_armed_at >= self.escape_hold_seconds:
-            self._return_to_selector()
+            self.mode = "select"
+            self._clear_keys()
+            self.escape_armed_at = None
+            self.run_notice = ""
             return True
         if self.mode != "run":
             return True
@@ -192,9 +164,9 @@ class EmulationScreen(Screen):
         if self.mode == "run":
             self._render_running(draw, buffer)
         elif self.mode == "detail":
-            self._render_detail(draw, buffer)
+            self._render_detail(draw)
         else:
-            self._render_selector(draw, buffer)
+            self._render_selector(draw)
 
     def _paint_static_background(self, draw: ImageDraw.ImageDraw, buffer: Image.Image) -> None:
         app = self.context.app
@@ -208,7 +180,7 @@ class EmulationScreen(Screen):
         draw_label(draw, width - 68, 13, "VFD DIAG", app.font, DIM)
         draw.line((16, 32, width - 16, 32), fill=SURFACE_INSET)
 
-    def _render_selector(self, draw: ImageDraw.ImageDraw, buffer: Image.Image) -> None:
+    def _render_selector(self, draw: ImageDraw.ImageDraw) -> None:
         app = self.context.app
         width = app.config.display.width
         height = app.config.display.height
@@ -219,10 +191,6 @@ class EmulationScreen(Screen):
 
         row_top = 54 if self.mode != "error" else 116
         row_height = 29
-        selected_cart = self.cartridges[self.selection] if self.cartridges else None
-        has_preview = selected_cart is not None and selected_cart.preview_path is not None
-        list_right = width - 22 if not has_preview else min(width - 112, 168)
-        title_limit = 24 if not has_preview else 13
         visible = self.cartridges[:5]
         if self.selection >= 5:
             start = self.selection - 4
@@ -235,34 +203,27 @@ class EmulationScreen(Screen):
             selected = index == self.selection
             outline = ACCENT if selected else DIM
             fill = SURFACE_PANEL if selected else BG
-            cart_bounds = (22, top, list_right, top + row_height)
+            cart_bounds = (22, top, width - 22, top + row_height)
             draw.rounded_rectangle(cart_bounds, radius=4, outline=outline, fill=fill)
             if selected:
-                draw.rounded_rectangle((24, top + 2, list_right - 2, top + row_height - 2), radius=3, outline=DIM, fill=None)
+                draw.rounded_rectangle((24, top + 2, width - 24, top + row_height - 2), radius=3, outline=DIM, fill=None)
             if selected and self.blink < 0.55:
                 # Segmented bar cursor instead of filled rect
                 draw_scanlines(draw, (29, top + 9, 38, top + 16), step=3, color=ACCENT)
-            draw_label(draw, 44, top + 5, self._trim(cart.title, title_limit), app.font, FG if selected else DIM)
-            draw_label(draw, list_right - 42, top + 5, f"{index + 1:02}", app.font, outline)
-
-        if selected_cart is not None and selected_cart.preview_path is not None:
-            preview_bounds = (176, row_top, width - 22, row_top + 96)
-            self._draw_preview(draw, buffer, preview_bounds, selected_cart.preview_path)
-            image_label = self._preview_label(selected_cart)
-            draw_label(draw, preview_bounds[0], preview_bounds[3] + 7, self._trim(image_label, 13), app.font, DIM)
+            draw_label(draw, 44, top + 5, self._trim(cart.title, 24), app.font, FG if selected else DIM)
+            draw_label(draw, width - 63, top + 5, f"{index + 1:02}", app.font, outline)
 
         draw_label(draw, 18, height - 25, "UP/DOWN SELECT", app.font, WARN)
         draw_label(draw, 120, height - 25, "ENTER RUN", app.font, WARN)
         draw_label(draw, width - 64, height - 25, "Y INFO", app.font, WARN)
 
-    def _render_detail(self, draw: ImageDraw.ImageDraw, buffer: Image.Image) -> None:
+    def _render_detail(self, draw: ImageDraw.ImageDraw) -> None:
         app = self.context.app
         width = app.config.display.width
         height = app.config.display.height
         cart = self.cartridges[self.selection]
         notes = self._detail_lines(cart)
-        preview_bounds = (width - 116, 88, width - 26, 154) if cart.preview_path is not None else None
-        visible_count = 4 if preview_bounds is not None else 9
+        visible_count = 9
         max_scroll = max(0, len(notes) - visible_count)
         self.detail_scroll = min(self.detail_scroll, max_scroll)
 
@@ -275,26 +236,20 @@ class EmulationScreen(Screen):
         note_label = "JSON" if cart.metadata else ("TXT" if cart.notes else "NO NOTES")
         draw_label(draw, width - 96, 65, note_label, app.font, WARN if cart.notes else DIM)
 
-        notes_right = preview_bounds[0] - 8 if preview_bounds is not None else width - 30
-        notes_bounds = (24, 82, notes_right, height - 42)
+        notes_bounds = (24, 82, width - 30, height - 42)
         draw_dot_grid(draw, notes_bounds, step=10, color=SURFACE_GRID)
-        if preview_bounds is not None and cart.preview_path is not None:
-            self._draw_preview(draw, buffer, preview_bounds, cart.preview_path)
-            draw_label(draw, preview_bounds[0], preview_bounds[3] + 7, self._trim(self._preview_label(cart), 12), app.font, DIM)
 
         y = 89
         for line in notes[self.detail_scroll : self.detail_scroll + visible_count]:
-            draw_label(draw, 26, y, self._trim(line, 20 if preview_bounds is not None else 34), app.font, FG if line else DIM)
+            draw_label(draw, 26, y, line, app.font, FG if line else DIM)
             y += 12
         if max_scroll:
             bar_top = 90
             bar_bottom = height - 47
-            bar_left = notes_right - 3
-            bar_right = notes_right
             thumb_height = max(12, (bar_bottom - bar_top) // max(1, len(notes) - visible_count + 1))
             thumb_top = bar_top + int((bar_bottom - bar_top - thumb_height) * (self.detail_scroll / max_scroll))
-            draw.rectangle((bar_left, bar_top, bar_right, bar_bottom), outline=SURFACE_INSET)
-            draw.rectangle((bar_left, thumb_top, bar_right, thumb_top + thumb_height), fill=ACCENT)
+            draw.rectangle((width - 27, bar_top, width - 24, bar_bottom), outline=SURFACE_INSET)
+            draw.rectangle((width - 27, thumb_top, width - 24, thumb_top + thumb_height), fill=ACCENT)
 
         draw_label(draw, 18, height - 25, "A/B SCROLL", app.font, WARN)
         draw_label(draw, 106, height - 25, "X RUN", app.font, WARN)
@@ -321,7 +276,7 @@ class EmulationScreen(Screen):
         draw_scanlines(draw, (screen_left, screen_top, screen_left + screen_width, screen_top + screen_height), step=8, color="#07120E")
         draw_label(draw, 18, 176, self._trim(self.loaded_title, 18), app.font, WARN)
         draw_label(draw, 18, 193, "HOLD ESC CARTS", app.font, DIM)
-        draw_label(draw, 104, 193, "1234/QWER/ASDF/ZXCV", app.font, INFO)
+        draw_label(draw, 104, 193, "0-9 + A-F DIRECT", app.font, INFO)
         if self.run_notice and time.monotonic() < self.run_notice_until:
             draw_label(draw, 18, 211, self.run_notice, app.font, WARN)
         if self.chip8.sound_timer > 0:
@@ -332,7 +287,8 @@ class EmulationScreen(Screen):
     def on_button(self, button: str, long_press: bool) -> bool:
         if self.mode == "run":
             if button == "Y" and long_press:
-                self._return_to_selector()
+                self.mode = "select"
+                self._clear_keys()
                 return True
             if button == "Y":
                 self._set_run_notice("hold Y for carts")
@@ -371,8 +327,6 @@ class EmulationScreen(Screen):
         return False
 
     def on_keyboard_event(self, event: KeyboardEvent) -> bool:
-        if self._handle_suppressed_runtime_key(event):
-            return True
         if event.ctrl or event.alt:
             return False
         if self.mode == "run":
@@ -381,13 +335,12 @@ class EmulationScreen(Screen):
                 return True
             key = self._runtime_key_for_event(event)
             if key is not None:
-                self._track_runtime_key(event)
                 self._set_runtime_key(key, event.event_type != "release")
                 return True
             if event.key in self.navigation_keys:
                 return True
             if event.event_type == "press":
-                self._set_run_notice("chip8 grid: 1234 qwer asdf zxcv")
+                self._set_run_notice("chip8 keys: 0-9 and A-F")
                 return True
             return False
         if self.mode == "detail":
@@ -454,13 +407,6 @@ class EmulationScreen(Screen):
             return ["A up", "B down", "X run", "Y back"]
         return ["A up", "B down", "X run", "Y info"]
 
-    def accepts_key_release(self) -> bool:
-        return self.mode == "run" or bool(self.suppressed_runtime_key_ids)
-
-    def on_deactivate(self) -> None:
-        if self.mode == "run":
-            self._return_to_selector()
-
     def _load_selection(self) -> None:
         if not self.cartridges:
             return
@@ -483,7 +429,7 @@ class EmulationScreen(Screen):
         self.run_notice = ""
         self.run_notice_until = 0.0
         self.escape_armed_at = None
-        self._clear_keys(clear_physical=True)
+        self._clear_keys()
 
     def _open_detail(self) -> None:
         if not self.cartridges:
@@ -547,12 +493,13 @@ class EmulationScreen(Screen):
     def _runtime_key_for_event(self, event: KeyboardEvent) -> int | None:
         if not self.cartridges:
             return None
-        if event.shift and event.raw_key in self.shift_hex_raw_keys:
-            return self.shift_hex_raw_keys[event.raw_key]
-        if event.shift and len(event.key) == 1 and event.key.lower() in "0123456789abcdef":
-            return int(event.key, 16)
-        if event.raw_key in self.direct_hex_raw_keys:
-            return self.direct_hex_raw_keys[event.raw_key]
+        cart = self.cartridges[self.selection]
+        source_key = Path(cart.source).stem
+        override = self.rom_key_overrides.get(source_key, {})
+        if event.text in override:
+            return override[event.text]
+        if event.raw_key == "KEY_SPACE" and " " in override:
+            return override[" "]
         return self.keyboard_map.get(event.key)
 
     def _handle_run_escape(self, event: KeyboardEvent) -> None:
@@ -565,14 +512,6 @@ class EmulationScreen(Screen):
             self.escape_armed_at = time.monotonic()
             self._set_run_notice("hold Esc to leave cart")
 
-    def _return_to_selector(self) -> None:
-        self._suppress_active_runtime_keys()
-        self._clear_keys()
-        self.chip8.reset()
-        self.mode = "select"
-        self.run_notice = ""
-        self.run_notice_until = 0.0
-
     def _set_run_notice(self, message: str) -> None:
         self.run_notice = message.upper()
         self.run_notice_until = time.monotonic() + 1.2
@@ -584,50 +523,11 @@ class EmulationScreen(Screen):
             self.chip8.set_key(key, False)
             self.held_keys.pop(key, None)
 
-    def _clear_keys(self, *, clear_physical: bool = False) -> None:
+    def _clear_keys(self) -> None:
         for key in range(16):
             self.chip8.set_key(key, False)
         self.held_keys.clear()
         self.escape_armed_at = None
-        if clear_physical:
-            self.active_runtime_key_ids.clear()
-            self.suppressed_runtime_key_ids.clear()
-
-    def _track_runtime_key(self, event: KeyboardEvent) -> None:
-        identity = self._runtime_key_identity(event)
-        if event.event_type == "release":
-            self.active_runtime_key_ids.discard(identity)
-        else:
-            self.active_runtime_key_ids.add(identity)
-
-    def _suppress_active_runtime_keys(self) -> None:
-        if not self.active_runtime_key_ids:
-            return
-        until = time.monotonic() + self.release_suppression_seconds
-        for identity in self.active_runtime_key_ids:
-            self.suppressed_runtime_key_ids[identity] = until
-
-    def _handle_suppressed_runtime_key(self, event: KeyboardEvent) -> bool:
-        identity = self._runtime_key_identity(event)
-        if identity not in self.suppressed_runtime_key_ids:
-            return False
-        if event.event_type == "release":
-            self.suppressed_runtime_key_ids.pop(identity, None)
-            self.active_runtime_key_ids.discard(identity)
-        return True
-
-    def _expire_suppressed_runtime_keys(self) -> None:
-        if not self.suppressed_runtime_key_ids:
-            return
-        now = time.monotonic()
-        expired = [identity for identity, until in self.suppressed_runtime_key_ids.items() if until <= now]
-        for identity in expired:
-            self.suppressed_runtime_key_ids.pop(identity, None)
-            self.active_runtime_key_ids.discard(identity)
-
-    @staticmethod
-    def _runtime_key_identity(event: KeyboardEvent) -> str:
-        return event.raw_key or event.key
 
     @staticmethod
     def _title_for_path(path: Path) -> str:
@@ -646,73 +546,6 @@ class EmulationScreen(Screen):
             return str(metadata["desc"]).strip()
         return EmulationScreen._read_notes(path)
 
-    @staticmethod
-    def _metadata_preview_path(path: Path, metadata: dict[str, Any] | None) -> Path | None:
-        if metadata is None:
-            return None
-        images = metadata.get("images")
-        archive_dir = metadata.get("_archive_dir")
-        archive_key = metadata.get("_archive_key", path.stem)
-        if not isinstance(images, list) or not isinstance(archive_dir, str):
-            return None
-        for image_name in images:
-            if not isinstance(image_name, str) or not image_name:
-                continue
-            image_path = Path(archive_dir) / "src" / str(archive_key) / image_name
-            if image_path.exists():
-                return image_path
-        return None
-
-    def _draw_preview(self, draw: ImageDraw.ImageDraw, buffer: Image.Image, bounds: tuple[int, int, int, int], path: Path) -> None:
-        draw.rectangle(bounds, outline=ACCENT, fill=BG)
-        inner = (bounds[0] + 2, bounds[1] + 2, bounds[2] - 2, bounds[3] - 2)
-        frames = self._preview_frames(path, (inner[2] - inner[0], inner[3] - inner[1]))
-        if not frames:
-            draw_scanlines(draw, inner, step=4, color=SURFACE_GRID)
-            draw_label(draw, bounds[0] + 6, bounds[1] + 8, "NO PREVIEW", self.context.app.font, DIM)
-            return
-        frame_index = int(time.monotonic() * self.preview_frame_hz) % len(frames)
-        buffer.paste(frames[frame_index], inner[:2])
-        draw.rectangle(bounds, outline=ACCENT)
-        draw_corner_ticks(draw, bounds, color=COOL, length=5)
-
-    def _preview_frames(self, path: Path, size: tuple[int, int]) -> tuple[Image.Image, ...]:
-        try:
-            mtime = path.stat().st_mtime
-        except OSError:
-            return ()
-        cache_key = (str(path), hash(size), size)
-        cached = self.preview_cache.get(cache_key)
-        if cached is not None and cached[0] == mtime:
-            return cached[1]
-        frames: list[Image.Image] = []
-        try:
-            with Image.open(path) as source:
-                for source_frame in ImageSequence.Iterator(source):
-                    frame = ImageOps.contain(source_frame.convert("RGB"), size, method=Image.Resampling.NEAREST)
-                    canvas = Image.new("RGB", size, BG)
-                    left = (size[0] - frame.width) // 2
-                    top = (size[1] - frame.height) // 2
-                    canvas.paste(frame, (left, top))
-                    frames.append(canvas)
-                    if len(frames) >= self.max_preview_frames:
-                        break
-        except OSError:
-            frames = []
-        output = tuple(frames)
-        self.preview_cache[cache_key] = (mtime, output)
-        return output
-
-    @staticmethod
-    def _preview_label(cart: Cartridge) -> str:
-        metadata = cart.metadata or {}
-        images = metadata.get("images")
-        if isinstance(images, list) and images:
-            return str(images[0])
-        if cart.preview_path is not None:
-            return cart.preview_path.name
-        return "preview"
-
     def _load_archive_metadata(self) -> dict[str, dict[str, Any]]:
         metadata: dict[str, dict[str, Any]] = {}
         for programs_path in self.rom_dir.rglob("programs.json"):
@@ -728,8 +561,6 @@ class EmulationScreen(Screen):
                     continue
                 entry = dict(value)
                 entry["authors"] = self._author_labels(entry.get("authors"), authors)
-                entry["_archive_dir"] = str(programs_path.parent)
-                entry["_archive_key"] = str(key)
                 metadata[str(key)] = entry
         return metadata
 

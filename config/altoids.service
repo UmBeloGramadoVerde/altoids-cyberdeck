@@ -1,13 +1,13 @@
 [Unit]
 Description=Altoids Cyberdeck UI
-Wants=bluetooth.target
+After=multi-user.target bluetooth.target
 
 [Service]
 Type=simple
 WorkingDirectory=/opt/altoids/current
 RuntimeDirectory=altoids
-Environment=ALTOIDS_RUNTIME_STATE=/run/altoids
-ExecStart=/opt/altoids/.venv/bin/python -m altoids
+ExecStart=/opt/altoids/runtime/bin/altoids-supervisor
+ExecReload=/opt/altoids/runtime/bin/altoidsctl reload
 Restart=on-failure
 RestartSec=5
 TimeoutStartSec=40

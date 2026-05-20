@@ -9,8 +9,10 @@ import traceback
 
 from PIL import Image, ImageChops
 
-np = None
-_numpy_loaded = False
+try:
+    import numpy as np
+except ModuleNotFoundError:  # pragma: no cover
+    np = None
 
 
 class Display:
@@ -228,7 +230,7 @@ class Display:
         return "".join(trace[-8:]).strip() or type(exc).__name__
 
     def _rgb565_bytes(self, image: Image.Image) -> bytes:
-        if self._numpy() is not None:
+        if np is not None:
             return self._rgb565_region_bytes(self._rgb_array(image))
         data = bytearray()
         for red, green, blue in image.getdata():
@@ -238,9 +240,6 @@ class Display:
         return bytes(data)
 
     def _rgb_array(self, image: Image.Image):
-        np = self._numpy()
-        if np is None:
-            raise RuntimeError("numpy is not available")
         rgb = np.asarray(image, dtype=np.uint8)
         return self._quantize_rgb_array(rgb)
 
@@ -249,9 +248,6 @@ class Display:
 
     @staticmethod
     def _rgb565_from_rgb_region(region):
-        np = Display._numpy()
-        if np is None:
-            raise RuntimeError("numpy is not available")
         return (
             ((region[..., 0].astype(np.uint16) & 0xF8) << 8)
             | ((region[..., 1].astype(np.uint16) & 0xFC) << 3)
@@ -317,7 +313,6 @@ class Display:
         difference: Image.Image,
         bbox: tuple[int, int, int, int],
     ) -> list[tuple[int, int, int, int]] | None:
-        np = self._numpy()
         if np is None:
             return None
         left, top, right, bottom = bbox
@@ -404,19 +399,6 @@ class Display:
                 offset_y + int(ys.max()) + 1,
             )
         ]
-
-    @staticmethod
-    def _numpy():
-        global np, _numpy_loaded
-        if not _numpy_loaded:
-            _numpy_loaded = True
-            try:
-                import numpy as numpy_module
-            except ModuleNotFoundError:  # pragma: no cover
-                np = None
-            else:
-                np = numpy_module
-        return np
 
     def _apply_spi_speed(self) -> None:
         if self.spi_speed_hz is None or self._backend is None:

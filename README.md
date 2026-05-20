@@ -54,7 +54,7 @@ altoids/
 │       └── widgets.py
 ├── config/
 │   ├── altoids.service
-│   ├── altoids.toml
+│   ├── altoids.example.toml
 │   └── tmux.conf
 ├── requirements.txt
 └── setup.sh
@@ -105,7 +105,7 @@ Current controls:
 - `X` / `T`: open terminal
 - `Y` / `S`: open system screen
 
-Global keyboard help is available from any screen with `F1`, `Ctrl+H`, `Ctrl+/`, or `CMD+H`. The overlay opens to the current screen's help page unless that screen already has a remembered help page. Use `1`..`5` to jump directly to a help page, `Left` / `Right`, `Up` / `Down`, `Tab`, or `Space` to switch pages, and `Esc`, `Enter`, `F1`, `Ctrl+H`, `Ctrl+/`, or `H` to close it.
+Global keyboard help is available from any screen with `F1`, `Ctrl+H`, `Ctrl+/`, or `CMD+H`. The overlay opens to the current screen's help page unless that screen already has a remembered help page. Use `1`..`6` to jump directly to a help page, `Left` / `Right`, `Up` / `Down`, `Tab`, or `Space` to switch pages, and `Esc`, `Enter`, `F1`, `Ctrl+H`, `Ctrl+/`, or `H` to close it.
 
 ### Terminal
 
@@ -140,7 +140,7 @@ Keyboard behavior on the terminal screen:
 - `Ctrl+Home` / `Ctrl+End`: jump to the oldest captured lines or back to live output
 - `Ctrl` + letter chords such as `Ctrl+C` are forwarded into tmux
 - `F1`, `Ctrl+H`, `Ctrl+/`, or `CMD+H`: open keyboard shortcut help
-- `CMD+[` / `CMD+]`: previous / next tmux window
+- `CMD+A` / `CMD+S`: previous / next tmux window
 - `CMD+1`..`CMD+9`: jump to tmux windows 1 through 9
 - `CMD+0`: jump to tmux window 10
 - `CMD+N` / `CMD+K`: create / close tmux window
@@ -191,11 +191,11 @@ Current controls:
 - `Y`: enter Wi‑Fi setup
 - `long Y`: open terminal
 
-Wi‑Fi setup opens on the latest cached network list to avoid spending battery on an automatic scan. Inside setup, `A` / `B` picks a network, `X` rescans, and `Y` joins the selected network. Keyboard users can press `W` from the system screen to enter setup, then use `Up` / `Down`, `R`, `Enter`, and `Esc`.
+Wi‑Fi setup scans nearby networks and shows the selected network from that scan. Inside setup, `A` / `B` picks a network, `X` rescans, and `Y` joins the selected network. Keyboard users can press `CMD+C` from the system screen to enter setup, then use `Up` / `Down`, `R`, `Enter`, and `Esc`.
 
 If the selected Wi‑Fi network is secured and no working password is cached, the system screen prompts for a password from the keyboard. `Enter` submits, `Backspace` edits, and `Esc` cancels.
 
-On the system screen, `W` enters Wi‑Fi setup.
+On the system screen, `CMD+C` enters Wi‑Fi setup.
 
 Wi‑Fi management is implemented in [altoids/wifi.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/wifi.py:1) and currently depends on `nmcli`, which means the Pi should use NetworkManager.
 
@@ -211,7 +211,15 @@ See [docs/tinscope.md](/home/kayna/altoids-cyberdeck/docs/tinscope.md:1) for con
 
 ## Configuration
 
-Application config lives in [config/altoids.toml](/Users/kaynaoliveira/Documents/GitHub/altoids/config/altoids.toml:1) and is loaded by [altoids/config.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/config.py:78).
+Copy the example config to get started:
+
+```bash
+cp config/altoids.example.toml config/altoids.toml
+```
+
+Your `config/altoids.toml` is gitignored so you can customize it freely without merge conflicts when pulling upstream changes. The app falls back to built-in defaults if no config file exists.
+
+Config is loaded by `altoids/config.py`.
 
 Current config sections:
 
@@ -240,7 +248,7 @@ transfer_quantization = "rgb332"
 scan_cache_seconds = 15.0
 
 [wifi.passwords]
-"MySSID" = "supersecret"
+"YourNetworkName" = "your-password-here"
 ```
 
 The terminal config also supports a dedicated rcfile for deck sessions:
@@ -289,29 +297,27 @@ Related config files:
 
 PiSugar's installer edits `/boot/firmware/config.txt`, updates `/etc/modules`, installs `wm8960-soundcard.service`, and recommends a reboot after setup so ALSA re-enumerates the `wm8960soundcard` device cleanly.
 
-## Update Flow
+## Safe Reload Flow
 
-The service launches `python -m altoids` directly from `/opt/altoids/current`. Releases are staged into versioned directories under `/opt/altoids/releases`; promotion is a direct symlink update followed by a systemd restart.
+The service now runs behind a stable supervisor entrypoint instead of launching `python -m altoids` directly. Releases are staged into versioned directories under `/opt/altoids/releases`, then promoted only after the new build passes a self-test and survives a short health window.
 
 The intended operator flow from the tmux shell is through the repo `Makefile`:
 
 - `make stage`: copy the current checkout into a new staged release
-- `make activate`: self-test the staged release and point `/opt/altoids/current` at it
-- `make restart-staged`: activate the staged release, restart `altoids.service`, and verify the service is active
-- `make reload`: compatibility alias for `make restart-staged`
-- `make update`: refresh the stable tmux config, re-source it into the running tmux server, stage the current checkout, activate the staged release, restart the service, verify the service is active, and print status
-- `make rollback`: point `/opt/altoids/current` back to the previous release, restart `altoids.service`, and verify the service is active
-- `make status`: show the active, previous, and staged release plus the last runtime result
+- `make reload`: ask the supervisor to switch to that staged release
+- `make update`: refresh the stable tmux config, re-source it into the running tmux server, then run a local self-test, stage the current checkout, reload it, and print status
+- `make rollback`: switch back to the previous known-good release when you have an operator path to trigger it
+- `make status`: show the active, previous, and staged release plus the last reload result
 - `make tmux-sync`: install `config/tmux.conf` to `/opt/altoids/runtime/tmux.conf`, point `/etc/tmux.conf` and `~/.tmux.conf` at it, then re-source it into the running tmux server
 - `make tmux-apply`: re-source `/opt/altoids/runtime/tmux.conf` into the running tmux server
 - `make tmux-install-user`: point `~/.tmux.conf` at `/opt/altoids/runtime/tmux.conf`
 - `make tmux-install-system`: point `/etc/tmux.conf` at `/opt/altoids/runtime/tmux.conf`
 
-The important behavior is that reloads are explicit, staged operations rather than "quick save / quick load" shortcuts. That keeps the process focused on preparing a candidate build, validating it, promoting it, and restarting the service.
+The important behavior is that reloads are now explicit, staged operations rather than "quick save / quick load" shortcuts. That keeps the process focused on preparing a candidate build, validating it, and only then asking the supervisor to cut over.
 
 Tmux is intentionally handled through one stable path outside the staged release directories. That avoids the old problem where tmux was reading one file while the repo was changing another. The repo copy stays at `config/tmux.conf`, while the live path is `/opt/altoids/runtime/tmux.conf`.
 
-The app also supports `python -m altoids --self-test`, which initializes the UI stack, renders one frame, and exits non-zero on startup failure.
+The app now also supports `python -m altoids --self-test`, which initializes the UI stack, renders one frame, and exits non-zero on startup failure. The supervisor uses this with a JSON health file under `/run/altoids/health.json` to decide whether a candidate release is safe to keep running.
 
 The original plan also called for overlayfs and a writable tmux state area for better power-loss tolerance. Those operational steps are not yet fully automated in this repository.
 

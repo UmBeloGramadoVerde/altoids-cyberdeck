@@ -38,9 +38,6 @@ class Screen:
     def on_wake(self) -> None:
         return
 
-    def on_deactivate(self) -> None:
-        return
-
     def get_button_hints(self) -> list[str]:
         return ["-", "-", "-", "-"]
 

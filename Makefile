@@ -1,4 +1,4 @@
-.PHONY: setup self-test startup-benchmark display-benchmark input-latency-benchmark terminal-latency-benchmark commit-push stage activate restart-staged reload rollback status update repair-runtime service-check runtime-sync tmux-apply tmux-install-user tmux-install-system tmux-sync
+.PHONY: setup self-test display-benchmark input-latency-benchmark terminal-latency-benchmark commit-push stage reload rollback status update repair-runtime runtime-sync tmux-apply tmux-install-user tmux-install-system tmux-sync
 
 RUNTIME_CTL ?= /opt/altoids/runtime/bin/altoidsctl
 RUNTIME_BIN_DIR ?= /opt/altoids/runtime/bin
@@ -13,9 +13,6 @@ setup:
 
 self-test:
 	python3 -m altoids --self-test
-
-startup-benchmark:
-	python3 scripts/startup_benchmark.py
 
 display-benchmark:
 	python3 scripts/display_benchmark.py
@@ -32,21 +29,11 @@ commit-push:
 stage:
 	sudo $(RUNTIME_CTL) stage $(RELEASE_SOURCE)
 
-activate:
-	sudo $(RUNTIME_CTL) activate
-
-restart-staged:
-	$(MAKE) activate
-	sudo systemctl restart $(SERVICE_NAME)
-	$(MAKE) service-check
-
 reload:
-	$(MAKE) restart-staged
+	sudo $(RUNTIME_CTL) reload
 
 rollback:
 	sudo $(RUNTIME_CTL) rollback
-	sudo systemctl restart $(SERVICE_NAME)
-	$(MAKE) service-check
 
 status:
 	sudo $(RUNTIME_CTL) status
@@ -54,30 +41,21 @@ status:
 update:
 	$(MAKE) runtime-sync
 	$(MAKE) tmux-sync
+	$(MAKE) self-test
 	$(MAKE) stage
-	$(MAKE) activate
-	sudo systemctl restart $(SERVICE_NAME)
-	$(MAKE) service-check
+	$(MAKE) reload
 	$(MAKE) status
 
 repair-runtime:
 	$(MAKE) runtime-sync
+	sudo install -m 755 $(CURDIR)/config/altoids-runtime.py /opt/altoids/runtime/bin/altoids-runtime
 	sudo chown -R $(SERVICE_USER):$(SERVICE_USER) /opt/altoids
 	sudo systemctl restart $(SERVICE_NAME)
-	$(MAKE) service-check
 	sudo $(RUNTIME_CTL) status
-
-service-check:
-	sudo systemctl is-active $(SERVICE_NAME)
 
 runtime-sync:
 	sudo install -d -m 755 $(RUNTIME_BIN_DIR)
-	sudo install -m 755 $(CURDIR)/config/altoids-runtime.py $(RUNTIME_BIN_DIR)/altoids-runtime
-	sudo install -m 755 $(CURDIR)/config/altoidsctl $(RUNTIME_BIN_DIR)/altoidsctl
 	sudo install -m 755 $(CURDIR)/config/cdx $(RUNTIME_BIN_DIR)/cdx
-	sudo rm -f $(RUNTIME_BIN_DIR)/altoids-supervisor
-	sudo cp $(CURDIR)/config/altoids.service /etc/systemd/system/altoids.service
-	sudo systemctl daemon-reload
 
 tmux-apply:
 	tmux start-server
