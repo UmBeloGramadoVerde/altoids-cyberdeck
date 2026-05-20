@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ALTOIDS_SOURCE_ROOT="${ALTOIDS_SOURCE_ROOT:-/home/kayna/altoids-cyberdeck}"
+if [[ -z "${ALTOIDS_ROOT:-}" && -f "$ALTOIDS_SOURCE_ROOT/altoids/cdx.py" ]]; then
+  ALTOIDS_ROOT="$ALTOIDS_SOURCE_ROOT"
+else
+  ALTOIDS_ROOT="${ALTOIDS_ROOT:-/opt/altoids/current}"
+fi
+ALTOIDS_VENV="${ALTOIDS_VENV:-/opt/altoids/.venv/bin/python}"
+
+export PYTHONPATH="${ALTOIDS_ROOT}${PYTHONPATH:+:$PYTHONPATH}"
+
+CODEX_HOME_DIR="${CODEX_HOME:-${HOME}/.codex}"
+if ! mkdir -p "$CODEX_HOME_DIR" 2>/dev/null || ! touch "$CODEX_HOME_DIR/.cdx-write-test" 2>/dev/null; then
+  ALTOIDS_CDX_HOME="${ALTOIDS_CDX_HOME:-${ALTOIDS_SOURCE_ROOT}/.runtime/cdx-home}"
+  ALTOIDS_CDX_STATE="${ALTOIDS_CDX_STATE:-${ALTOIDS_SOURCE_ROOT}/.runtime/cdx-state}"
+  ALTOIDS_CDX_CODEX_DIR="$ALTOIDS_CDX_HOME/.codex"
+  ALTOIDS_CDX_CONFIG="$ALTOIDS_CDX_CODEX_DIR/config.toml"
+  mkdir -p "$ALTOIDS_CDX_CODEX_DIR" "$ALTOIDS_CDX_STATE"
+  if [[ ! -f "$ALTOIDS_CDX_CONFIG" && -r "$CODEX_HOME_DIR/config.toml" ]]; then
+    cp "$CODEX_HOME_DIR/config.toml" "$ALTOIDS_CDX_CONFIG"
+  fi
+  touch "$ALTOIDS_CDX_CONFIG"
+  for ALTOIDS_CDX_TRUSTED_PROJECT in "$ALTOIDS_SOURCE_ROOT" "$PWD"; do
+    if ! grep -Fq "[projects.\"$ALTOIDS_CDX_TRUSTED_PROJECT\"]" "$ALTOIDS_CDX_CONFIG"; then
+      {
+        printf '\n[projects."%s"]\n' "$ALTOIDS_CDX_TRUSTED_PROJECT"
+        printf 'trust_level = "trusted"\n'
+      } >> "$ALTOIDS_CDX_CONFIG"
+    fi
+  done
+  exec "$ALTOIDS_VENV" -m altoids.cdx \
+    --home-override "$ALTOIDS_CDX_HOME" \
+    --xdg-state-home "$ALTOIDS_CDX_STATE" \
+    "$@"
+fi
+rm -f "$CODEX_HOME_DIR/.cdx-write-test"
+
+exec "$ALTOIDS_VENV" -m altoids.cdx "$@"

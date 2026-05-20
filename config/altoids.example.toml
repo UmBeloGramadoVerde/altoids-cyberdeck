@@ -1,0 +1,73 @@
+[display]
+backend = "whisplay"
+width = 280
+height = 240
+fps_active = 12
+fps_idle = 1
+backlight_brightness = 1.0
+rotation = 270
+driver_path = "vendor/Whisplay/Driver"
+transfer_quantization = "rgb332"
+input_poll_interval = 0.005
+split_dirty_regions = false
+
+[sleep]
+idle_seconds = 60
+
+[ui]
+font_path = "fonts/terminus.pil"
+font_size = 12
+message_interval = 12.0
+mascot_frame_seconds = 0.5
+button_labels = ["A", "B", "X", "Y"]
+
+[terminal]
+session_name = "altoids"
+pane_history = 200
+width_chars = 53
+height_chars = 20
+scroll_step = 3
+shell_rc_path = "config/cyberdeck-shell.sh"
+font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
+font_size = 11
+codex_compact = false
+codex_home = "~/.codex"
+codex_scan_limit = 24
+
+[system]
+temperature_warn_c = 70.0
+
+[wifi]
+scan_cache_seconds = 15.0
+
+[audio]
+enabled = true
+card = "wm8960soundcard"
+volume_percent = 70
+muted = false
+cue_screen_change = true
+cue_wake = true
+cue_boot = true
+cue_wifi = true
+cue_error = true
+
+[led]
+enabled = true
+pulses = true
+brightness = 0.35
+
+[voice]
+enabled = true
+backend = "openai"
+model = "gpt-4o-mini-transcribe"
+trigger = "meta+space"
+max_record_seconds = 30.0
+min_record_seconds = 0.25
+timeout_seconds = 30.0
+insert_trailing_space = false
+language = ""
+prompt = ""
+audio_device = ""
+sample_rate = 16000
+
+[wifi.passwords]

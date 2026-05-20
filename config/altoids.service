@@ -1,0 +1,18 @@
+[Unit]
+Description=Altoids Cyberdeck UI
+After=multi-user.target bluetooth.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/altoids/current
+RuntimeDirectory=altoids
+ExecStart=/opt/altoids/runtime/bin/altoids-supervisor
+ExecReload=/opt/altoids/runtime/bin/altoidsctl reload
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=40
+TimeoutStopSec=15
+User=kayna
+
+[Install]
+WantedBy=multi-user.target
