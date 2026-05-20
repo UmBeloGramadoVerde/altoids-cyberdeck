@@ -73,6 +73,11 @@ def ignore_copy(path: str, names: list[str]) -> set[str]:
         ignored.update({"current", "previous", "staged", "releases", "runtime"})
     if "artifacts" in names:
         ignored.add("artifacts")
+    base = Path(path)
+    for name in names:
+        entry = base / name
+        if not entry.is_file() and not entry.is_dir() and not entry.is_symlink():
+            ignored.add(name)
     return {name for name in names if name in ignored}
 
 
