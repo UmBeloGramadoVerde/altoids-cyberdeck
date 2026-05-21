@@ -7,6 +7,7 @@ import unittest
 
 from PIL import ImageFont
 
+from altoids.buttons import RIGHT_BOTTOM
 from altoids.input_keyboard import KeyboardEvent
 from altoids.ui.base import ScreenContext
 from altoids.ui.emulation import EmulationScreen
@@ -199,7 +200,7 @@ class EmulationScreenTest(unittest.TestCase):
         screen = self.make_screen()
         screen._load_selection()
 
-        self.assertTrue(screen.on_button("Y", True))
+        self.assertTrue(screen.on_button(RIGHT_BOTTOM, True))
 
         self.assertEqual(screen.mode, "select")
 

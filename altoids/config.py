@@ -38,7 +38,6 @@ class UIConfig:
     font_size: int = 12
     message_interval: float = 12.0
     mascot_frame_seconds: float = 0.5
-    button_labels: list[str] = field(default_factory=lambda: ["A", "B", "X", "Y"])
 
 
 @dataclass(slots=True)

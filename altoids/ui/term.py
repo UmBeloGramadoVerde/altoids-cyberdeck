@@ -6,11 +6,12 @@ import time
 
 from PIL import ImageDraw
 
+from ..buttons import LEFT_BOTTOM, LEFT_TOP, RIGHT_BOTTOM, RIGHT_TOP
 from ..colors import ACCENT, DIM, FG, SURFACE, SURFACE_ALT, SURFACE_GRID, SURFACE_INSET, SURFACE_PANEL
 from ..input_keyboard import KeyboardEvent
 from ..renderer import cell_width, render_terminal, strip_ansi, terminal_cell_advance
 from .base import Screen, ScreenContext
-from .widgets import BUTTON_BAR_HEIGHT
+from .widgets import SIDE_BAR_WIDTH
 from .widgets import draw_label
 from .widgets import draw_status_dot
 
@@ -65,12 +66,12 @@ class TerminalScreen(Screen):
         self._last_visible_rows = layout.visible_rows
         self._last_layout_minimal = layout.minimal
         width = app.config.display.width
-        signature = (layout.minimal, width, app.config.display.height, app.shows_button_bar)
+        signature = (layout.minimal, width, app.config.display.height, app.side_bar_width)
         buffer.paste(self.cached_background(signature, buffer.size, lambda bg_draw, bg_buffer: self._paint_static_background(bg_draw, bg_buffer, layout, width)))
         draw = ImageDraw.Draw(buffer)
 
         if not layout.minimal:
-            self._draw_frame(draw, width, layout, snapshot)
+            self._draw_frame(draw, layout, snapshot)
         lines = snapshot.lines
         render_terminal(
             draw,
@@ -97,30 +98,30 @@ class TerminalScreen(Screen):
         for y in range(layout.body_top + 1, layout.body_top + body_height, 4):
             draw.line((layout.body_left + 2, y, layout.body_right - 2, y), fill=SURFACE_GRID, width=1)
 
-    def on_button(self, button: str, long_press: bool) -> bool:
+    def on_button(self, slot: str, long_press: bool) -> bool:
         terminal_cfg = self.context.app.config.terminal
-        if button == "A":
+        if slot == LEFT_TOP:
             if long_press:
                 self.context.app.tmux.create_window()
                 self.scroll_offset = 0
                 return True
             self.scroll_offset += terminal_cfg.scroll_step * (10 if long_press else 1)
             return True
-        if button == "B":
+        if slot == LEFT_BOTTOM:
             if long_press:
                 self.context.app.tmux.close_active_window()
                 self.scroll_offset = 0
                 return True
             self.scroll_offset = max(0, self.scroll_offset - terminal_cfg.scroll_step * (10 if long_press else 1))
             return True
-        if button == "X":
+        if slot == RIGHT_TOP:
             if long_press:
                 self.context.app.tmux.select_previous_window()
             else:
                 self.context.app.tmux.select_next_window()
             self.scroll_offset = 0
             return True
-        if button == "Y":
+        if slot == RIGHT_BOTTOM:
             if long_press:
                 self.context.app.set_screen("home")
             else:
@@ -128,8 +129,13 @@ class TerminalScreen(Screen):
             return True
         return False
 
-    def get_button_hints(self) -> list[str]:
-        return ["A up/new", "B dn/kill", "X win", "Y enter"]
+    def get_button_hints(self) -> dict[str, str]:
+        return {
+            LEFT_TOP: "up/new",
+            LEFT_BOTTOM: "dn/kill",
+            RIGHT_TOP: "win",
+            RIGHT_BOTTOM: "enter",
+        }
 
     def on_keyboard_event(self, event: KeyboardEvent) -> bool:
         if event.alt:
@@ -164,40 +170,41 @@ class TerminalScreen(Screen):
     def _draw_frame(
         self,
         draw: ImageDraw.ImageDraw,
-        width: int,
         layout: TerminalLayout,
         snapshot,
     ) -> None:
-        draw.rounded_rectangle((layout.body_left, 8, width - 8, 32), radius=6, outline=ACCENT, fill=SURFACE_PANEL)
+        draw.rounded_rectangle((layout.body_left, 8, layout.body_right, 32), radius=6, outline=ACCENT, fill=SURFACE_PANEL)
 
         pane_name = snapshot.pane_title.strip() or snapshot.pane_command
         summary = self._window_summary(snapshot)
-        self._draw_header_strip(draw, width, pane_name, summary)
+        self._draw_header_strip(draw, layout, pane_name, summary)
 
     def _draw_header_strip(
         self,
         draw: ImageDraw.ImageDraw,
-        width: int,
+        layout: TerminalLayout,
         pane_name: str,
         summary: str,
     ) -> None:
         top = 8
         bottom = top + self._header_height
-        draw.rounded_rectangle((8, top, width - 8, bottom), radius=6, outline=ACCENT, fill=SURFACE_PANEL)
-        draw_status_dot(draw, 14, top + 6, self.scroll_offset == 0, color=ACCENT)
-        draw.rectangle((28, top + 7, 34, top + 13), outline=DIM, fill=None)
+        draw.rounded_rectangle((layout.body_left, top, layout.body_right, bottom), radius=6, outline=ACCENT, fill=SURFACE_PANEL)
+        indicator_left = layout.body_left + 6
+        draw_status_dot(draw, indicator_left, top + 6, self.scroll_offset == 0, color=ACCENT)
+        draw.rectangle((indicator_left + 14, top + 7, indicator_left + 20, top + 13), outline=DIM, fill=None)
         if self.scroll_offset == 0:
-            draw.line((40, top + 13, 44, top + 7), fill=ACCENT, width=1)
-            draw.line((44, top + 7, 48, top + 13), fill=ACCENT, width=1)
+            draw.line((indicator_left + 26, top + 13, indicator_left + 30, top + 7), fill=ACCENT, width=1)
+            draw.line((indicator_left + 30, top + 7, indicator_left + 34, top + 13), fill=ACCENT, width=1)
         else:
-            draw.line((40, top + 8, 44, top + 12), fill=DIM, width=1)
-            draw.line((44, top + 12, 48, top + 8), fill=DIM, width=1)
+            draw.line((indicator_left + 26, top + 8, indicator_left + 30, top + 12), fill=DIM, width=1)
+            draw.line((indicator_left + 30, top + 12, indicator_left + 34, top + 8), fill=DIM, width=1)
         summary_width = len(summary) * cell_width(self.context.app.font)
         status_width = 12 if self.scroll_offset == 0 else len(str(self.scroll_offset)) * cell_width(self.context.app.font) + 6
-        status_x = width - 16 - status_width
+        status_x = layout.body_right - 8 - status_width
         count_x = status_x - 6 - summary_width
-        title_limit = max(8, (count_x - 54) // max(1, cell_width(self.context.app.font)))
-        draw_label(draw, 54, top + 5, self._truncate(pane_name, title_limit), self.context.app.font, FG)
+        title_x = indicator_left + 40
+        title_limit = max(8, (count_x - title_x) // max(1, cell_width(self.context.app.font)))
+        draw_label(draw, title_x, top + 5, self._truncate(pane_name, title_limit), self.context.app.font, FG)
         draw_label(draw, count_x, top + 5, summary, self.context.app.font, ACCENT)
         if self.scroll_offset == 0:
             draw_status_dot(draw, status_x, top + 6, True, color=ACCENT)
@@ -235,18 +242,19 @@ class TerminalScreen(Screen):
     def _layout_for_state(self, minimal: bool) -> TerminalLayout:
         width = self.context.app.config.display.width
         height = self.context.app.config.display.height
+        side_bar_width = self.context.app.side_bar_width
         if minimal:
-            origin = (4, 8)
-            body_left = 2
+            origin = (side_bar_width + 4, 8)
+            body_left = side_bar_width + 2
             body_top = 2
-            body_right = width - 2
-            body_bottom = height - BUTTON_BAR_HEIGHT - 2
+            body_right = width - side_bar_width - 2
+            body_bottom = height - 2
         else:
-            origin = self._origin
-            body_left = 8
+            origin = (self._origin[0] + side_bar_width, self._origin[1])
+            body_left = side_bar_width + 8
             body_top = self._origin[1] - 6
-            body_right = width - 8
-            body_bottom = height - BUTTON_BAR_HEIGHT - 4
+            body_right = width - side_bar_width - 8
+            body_bottom = height - 4
         visible_rows = max(1, (body_bottom - origin[1]) // self._line_height)
         visible_cols = max(1, int((body_right - origin[0]) // terminal_cell_advance(self.context.app.terminal_font)))
         return TerminalLayout(

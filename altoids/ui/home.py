@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw
 
+from ..buttons import LEFT_BOTTOM, LEFT_TOP, RIGHT_BOTTOM, RIGHT_TOP
 from ..colors import ACCENT, AUX, COOL, DANGER, DIM, FG, INFO, SURFACE_ALT, SURFACE_INSET, WARN
 from ..messages import MESSAGES
 from ..sprites import SpriteAnimator, load_mascot_frames
@@ -61,12 +62,11 @@ class HomeScreen(Screen):
         mascot = self.animator.current()
         width = app.config.display.width
         height = app.config.display.height
-        footer_height = 24 if app.shows_button_bar else 0
-        layout = self._layout(width, height, footer_height)
+        layout = self._layout(width, height, app.side_bar_width)
         bluetooth_name = app.bluetooth_status.device_name or "SCAN"
         message_limit = max(8, (layout["marquee_bounds"][2] - layout["marquee_bounds"][0] - 48) // 7)
         message_lines = self._message_lines(MESSAGES[self.message_index], message_limit)
-        signature = (width, height, footer_height)
+        signature = (width, height, app.side_bar_width)
         buffer.paste(self.cached_background(signature, buffer.size, self._paint_static_background))
         draw = ImageDraw.Draw(buffer)
 
@@ -138,8 +138,7 @@ class HomeScreen(Screen):
         app = self.context.app
         width = app.config.display.width
         height = app.config.display.height
-        footer_height = 24 if app.shows_button_bar else 0
-        layout = self._layout(width, height, footer_height)
+        layout = self._layout(width, height, app.side_bar_width)
 
         draw_label(draw, 12, 8, "HOME // FIELD UNIT", app.font, ACCENT)
         draw_label(draw, width - 88, 8, "VFD READY", app.font, WARN)
@@ -165,10 +164,10 @@ class HomeScreen(Screen):
         draw_panel(draw, right_status_bounds, title="THERM", title_font=app.font, outline=ACCENT, title_color=ACCENT)
 
     @staticmethod
-    def _layout(width: int, height: int, footer_height: int) -> dict[str, object]:
-        panel_left = 12
-        panel_right = width - 12
-        content_bottom = height - footer_height - 8
+    def _layout(width: int, height: int, side_bar_width: int) -> dict[str, object]:
+        panel_left = side_bar_width + 6
+        panel_right = width - side_bar_width - 6
+        content_bottom = height - 8
         mascot_bounds = (panel_left, 24, panel_left + 104, 136)
         clock_left = mascot_bounds[2] + 8
         clock_bounds = (clock_left, 24, panel_right, 94)
@@ -192,19 +191,19 @@ class HomeScreen(Screen):
             "right_status_bounds": right_status_bounds,
         }
 
-    def on_button(self, button: str, long_press: bool) -> bool:
-        if button == "X":
+    def on_button(self, slot: str, long_press: bool) -> bool:
+        if slot == RIGHT_TOP:
             self.context.app.set_screen("term")
             return True
-        if button == "Y":
+        if slot == RIGHT_BOTTOM:
             self.context.app.set_screen("system")
             return True
-        if button == "A":
+        if slot == LEFT_TOP:
             if long_press:
                 self._cycle_message(-1)
                 return True
             return self._feed_pet()
-        if button == "B":
+        if slot == LEFT_BOTTOM:
             if long_press:
                 self._cycle_message(1)
                 return True
@@ -232,8 +231,13 @@ class HomeScreen(Screen):
             return True
         return False
 
-    def get_button_hints(self) -> list[str]:
-        return ["A feed", "B play", "X term", "Y sys"]
+    def get_button_hints(self) -> dict[str, str]:
+        return {
+            LEFT_TOP: "feed",
+            LEFT_BOTTOM: "play",
+            RIGHT_TOP: "term",
+            RIGHT_BOTTOM: "sys",
+        }
 
     def _draw_pet(
         self,

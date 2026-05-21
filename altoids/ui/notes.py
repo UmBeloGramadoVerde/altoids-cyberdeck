@@ -4,6 +4,7 @@ from typing import Any
 
 from PIL import ImageDraw
 
+from ..buttons import LEFT_BOTTOM, LEFT_TOP, RIGHT_BOTTOM, RIGHT_TOP
 from ..colors import ACCENT, AUX, BG, COOL, DIM, FG, INFO, SURFACE_ALT, SURFACE_GRID, SURFACE_INSET, WARN
 from ..input_keyboard import KeyboardEvent
 from ..notes import QuickNote
@@ -27,14 +28,16 @@ class NotesScreen(Screen):
         notes = self._notes()
         width = app.config.display.width
         height = app.config.display.height
-        footer_height = 24 if app.shows_button_bar else 0
-        signature = ("notes", width, height, footer_height)
+        side_bar_width = app.side_bar_width
+        signature = ("notes", width, height, side_bar_width)
         buffer.paste(self.cached_background(signature, buffer.size, self._paint_background))
         draw = ImageDraw.Draw(buffer)
 
-        content_bottom = height - footer_height - 8
-        notes_bounds = (10, 30, width - 10, 128)
-        compose_bounds = (10, 136, width - 10, content_bottom)
+        content_left = side_bar_width + 4
+        content_right = width - side_bar_width - 4
+        content_bottom = height - 8
+        notes_bounds = (content_left, 30, content_right, 128)
+        compose_bounds = (content_left, 136, content_right, content_bottom)
 
         draw_label(draw, 82, 8, self._display_text(self._trim(self.status_line.upper(), 22)), app.font, DIM)
         self._draw_recent_notes(draw, notes, notes_bounds)
@@ -44,15 +47,17 @@ class NotesScreen(Screen):
         app = self.context.app
         width = app.config.display.width
         height = app.config.display.height
-        footer_height = 24 if app.shows_button_bar else 0
-        content_bottom = height - footer_height - 8
+        side_bar_width = app.side_bar_width
+        content_left = side_bar_width + 4
+        content_right = width - side_bar_width - 4
+        content_bottom = height - 8
 
         draw_label(draw, 12, 8, "NOTES", app.font, ACCENT)
         draw_label(draw, width - 76, 8, "CAPTURE", app.font, WARN)
         draw_separator(draw, 20, width)
 
-        notes_bounds = (10, 30, width - 10, 128)
-        compose_bounds = (10, 136, width - 10, content_bottom)
+        notes_bounds = (content_left, 30, content_right, 128)
+        compose_bounds = (content_left, 136, content_right, content_bottom)
         draw_panel(draw, notes_bounds, title="RECENT DROPS", title_font=app.font, outline=COOL, title_color=COOL, fill=SURFACE_ALT, inner_outline=SURFACE_INSET)
         draw_scanlines(draw, notes_bounds, step=6, color=SURFACE_GRID)
         draw_panel(draw, compose_bounds, title="QUICK INPUT", title_font=app.font, outline=ACCENT, title_color=ACCENT, fill=BG, inner_outline=SURFACE_INSET)
@@ -104,23 +109,21 @@ class NotesScreen(Screen):
 
         draw_label(draw, left + 16, bottom - 16, "ENTER SAVE  BKSP EDIT  CMD+SP", app.font, DIM)
 
-    def on_button(self, button: str, long_press: bool) -> bool:
-        if button == "A":
+    def on_button(self, slot: str, long_press: bool) -> bool:
+        if slot == LEFT_TOP:
             self._select(-1)
             return True
-        if button == "B":
+        if slot == LEFT_BOTTOM:
             self._select(1)
             return True
-        if button == "X":
+        if slot == RIGHT_TOP:
             self._commit()
             return True
-        if button == "Y":
+        if slot == RIGHT_BOTTOM:
             if long_press:
                 self.context.app.set_screen("home")
             else:
-                self.draft = ""
-                self.source = "typed"
-                self.status_line = "DRAFT CLEARED"
+                self._clear_draft()
             return True
         return False
 
@@ -179,8 +182,13 @@ class NotesScreen(Screen):
         self.status_line = "VOICE ADDED"
         return True
 
-    def get_button_hints(self) -> list[str]:
-        return ["A prev", "B next", "X save", "Y clear"]
+    def get_button_hints(self) -> dict[str, str]:
+        return {
+            LEFT_TOP: "prev",
+            LEFT_BOTTOM: "next",
+            RIGHT_TOP: "save",
+            RIGHT_BOTTOM: "clear",
+        }
 
     def debug_state(self) -> dict[str, object]:
         return {

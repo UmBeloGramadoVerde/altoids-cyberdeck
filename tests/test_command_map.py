@@ -37,7 +37,6 @@ class CommandMapTest(unittest.TestCase):
             "term": object(),
             "system": object(),
             "emu": object(),
-            "tinscope": object(),
         }
         app.accents = SimpleNamespace(trigger=lambda cue: None)
         app.tmux = FakeTmux()
@@ -84,7 +83,7 @@ class CommandMapTest(unittest.TestCase):
 
         hints = app._command_mode_hints()
 
-        for expected in ["H", "Q", "T", "S", "I", "G", "R", "[", "]", "N", "K", "0-9"]:
+        for expected in ["H", "Q", "T", "S", "I", "G", "[", "]", "N", "K", "0-9"]:
             self.assertIn(expected, hints)
         self.assertNotIn("V", hints)
         self.assertNotIn("W", hints)
@@ -99,6 +98,7 @@ class CommandMapTest(unittest.TestCase):
         self.assertEqual(global_rows["system/settings"], "CMD+S")
         self.assertEqual(global_rows["notes"], "CMD+I")
         self.assertEqual(emu_rows["games"], "CMD+G")
+        self.assertNotIn("CMD+R", global_rows.values())
         self.assertNotIn("CMD+V", global_rows.values())
         self.assertNotIn("CMD+V", emu_rows.values())
 

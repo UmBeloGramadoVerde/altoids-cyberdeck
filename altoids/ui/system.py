@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from PIL import ImageDraw
 
+from ..buttons import LEFT_BOTTOM, LEFT_TOP, RIGHT_BOTTOM, RIGHT_TOP
 from ..colors import ACCENT, AUX, BG, COOL, DIM, FG, INFO, SURFACE_ALT, SURFACE_GRID, SURFACE_PANEL, WARN
 from ..input_keyboard import KeyboardEvent
 from ..wifi import WifiNetwork
@@ -73,10 +74,9 @@ class SystemScreen(Screen):
         accent_status = app.accents.status
         width = app.config.display.width
         height = app.config.display.height
-        footer_height = 24 if app.shows_button_bar else 0
-        content_bottom = height - footer_height - 8
-        layout = self._overview_layout(width)
-        signature = ("system_unified", width, height, footer_height)
+        content_bottom = height - 8
+        layout = self._overview_layout(width, app.side_bar_width)
+        signature = ("system_unified", width, height, app.side_bar_width)
         buffer.paste(self.cached_background(signature, buffer.size, self._paint_overview_background))
         draw = ImageDraw.Draw(buffer)
 
@@ -144,21 +144,19 @@ class SystemScreen(Screen):
         draw_label(draw, cues_left + 44, 182, mute_label, app.font, WARN if accent_status.muted else ACCENT)
 
         # ── Status line ──
-        status_y = content_bottom - 10 if footer_height else height - 18
-        draw_label(draw, 14, status_y, self._trim(self.status_line.upper(), max(20, (width - 28) // 7)), app.font, DIM)
+        status_y = height - 18
+        draw_label(draw, layout["status_left"], status_y, self._trim(self.status_line.upper(), max(20, (layout["status_width"]) // 7)), app.font, DIM)
 
     def _paint_overview_background(self, draw: ImageDraw.ImageDraw, buffer) -> None:
         app = self.context.app
         width = app.config.display.width
         height = app.config.display.height
-        footer_height = 24 if app.shows_button_bar else 0
-
         # Header
         draw_label(draw, 12, 8, "SYSTEM // MAGI-03", app.font, ACCENT)
         draw_label(draw, width - 68, 8, "VFD DIAG", app.font, DIM)
         draw_separator(draw, 20, width)
 
-        layout = self._overview_layout(width)
+        layout = self._overview_layout(width, app.side_bar_width)
         core_bounds = layout["core_bounds"]
         load_bounds = layout["load_bounds"]
         link_bounds = layout["link_bounds"]
@@ -180,16 +178,18 @@ class SystemScreen(Screen):
         draw_panel(draw, cues_bounds, title="CUES", title_font=app.font, outline=ACCENT, title_color=ACCENT)
 
     @staticmethod
-    def _overview_layout(width: int) -> dict[str, tuple[int, int, int, int]]:
-        total = width - 20
-        col_split = 10 + total * 35 // 100
-        core_bounds = (10, 28, col_split, 90)
-        load_bounds = (col_split - 4, 28, width - 10, 90)
-        link_bounds = (10, 96, col_split, 156)
-        wireless_bounds = (col_split - 4, 96, width - 10, 156)
-        rig_split = 10 + total * 45 // 100
-        rig_bounds = (10, 160, rig_split, 198)
-        cues_bounds = (rig_split + 2, 160, width - 10, 198)
+    def _overview_layout(width: int, side_bar_width: int) -> dict[str, tuple[int, int, int, int] | int]:
+        content_left = side_bar_width + 2
+        content_right = width - side_bar_width - 2
+        total = content_right - content_left
+        col_split = content_left + total * 35 // 100
+        core_bounds = (content_left, 28, col_split, 90)
+        load_bounds = (col_split - 4, 28, content_right, 90)
+        link_bounds = (content_left, 96, col_split, 156)
+        wireless_bounds = (col_split - 4, 96, content_right, 156)
+        rig_split = content_left + total * 45 // 100
+        rig_bounds = (content_left, 160, rig_split, 198)
+        cues_bounds = (rig_split + 2, 160, content_right, 198)
         return {
             "core_bounds": core_bounds,
             "load_bounds": load_bounds,
@@ -197,6 +197,8 @@ class SystemScreen(Screen):
             "wireless_bounds": wireless_bounds,
             "rig_bounds": rig_bounds,
             "cues_bounds": cues_bounds,
+            "status_left": content_left + 4,
+            "status_width": max(1, content_right - content_left - 8),
         }
 
     # ── Detail Views ──────────────────────────────────────────
@@ -225,8 +227,7 @@ class SystemScreen(Screen):
     def _render_core_detail(self, draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
         app = self.context.app
         stats = app.system_snapshot()
-        footer_h = 24 if app.shows_button_bar else 0
-        bounds = draw_detail_frame(draw, width, height, title="CORE", font=app.font, color=ACCENT, footer_height=footer_h)
+        bounds = draw_detail_frame(draw, width, height, title="CORE", font=app.font, color=ACCENT, side_bar_width=app.side_bar_width)
         left, top, right, bottom = bounds
 
         draw_label(draw, left, top, "STATUS", app.font, ACCENT)
@@ -242,8 +243,7 @@ class SystemScreen(Screen):
     def _render_load_detail(self, draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
         app = self.context.app
         stats = app.system_snapshot()
-        footer_h = 24 if app.shows_button_bar else 0
-        bounds = draw_detail_frame(draw, width, height, title="LOAD", font=app.font, color=WARN, footer_height=footer_h)
+        bounds = draw_detail_frame(draw, width, height, title="LOAD", font=app.font, color=WARN, side_bar_width=app.side_bar_width)
         left, top, right, bottom = bounds
 
         temp_color = WARN if stats["temperature_hot"] else ACCENT
@@ -270,8 +270,7 @@ class SystemScreen(Screen):
         wifi_status = app.wifi.status(allow_refresh=not app.input_render_pending)
         ip_addr = str(stats.get("ip_address", "offline"))
         wifi_connected = wifi_status.connected or (ip_addr not in ("offline", ""))
-        footer_h = 24 if app.shows_button_bar else 0
-        bounds = draw_detail_frame(draw, width, height, title="LINK", font=app.font, color=INFO, footer_height=footer_h)
+        bounds = draw_detail_frame(draw, width, height, title="LINK", font=app.font, color=INFO, side_bar_width=app.side_bar_width)
         left, top, right, bottom = bounds
 
         draw_label(draw, left, top, "CONNECTIVITY", app.font, INFO)
@@ -302,8 +301,7 @@ class SystemScreen(Screen):
         wifi_connected = wifi_status.connected or (ip_addr not in ("offline", ""))
         wifi_ssid = wifi_status.ssid or (ip_addr if wifi_connected else wifi_status.state)
         wifi_sig = wifi_status.signal if wifi_status.connected else (75 if wifi_connected else 0)
-        footer_h = 24 if app.shows_button_bar else 0
-        bounds = draw_detail_frame(draw, width, height, title="WIRELESS", font=app.font, color=COOL, footer_height=footer_h)
+        bounds = draw_detail_frame(draw, width, height, title="WIRELESS", font=app.font, color=COOL, side_bar_width=app.side_bar_width)
         left, top, right, bottom = bounds
 
         # Current connection status
@@ -352,8 +350,7 @@ class SystemScreen(Screen):
     def _render_rig_detail(self, draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
         app = self.context.app
         status = app.accents.status
-        footer_h = 24 if app.shows_button_bar else 0
-        bounds = draw_detail_frame(draw, width, height, title="RIG", font=app.font, color=AUX, footer_height=footer_h)
+        bounds = draw_detail_frame(draw, width, height, title="RIG", font=app.font, color=AUX, side_bar_width=app.side_bar_width)
         left, top, right, bottom = bounds
 
         status_color = ACCENT if status.whisplay_available else WARN
@@ -384,8 +381,7 @@ class SystemScreen(Screen):
     def _render_cues_detail(self, draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
         app = self.context.app
         status = app.accents.status
-        footer_h = 24 if app.shows_button_bar else 0
-        bounds = draw_detail_frame(draw, width, height, title="CUES", font=app.font, color=ACCENT, footer_height=footer_h)
+        bounds = draw_detail_frame(draw, width, height, title="CUES", font=app.font, color=ACCENT, side_bar_width=app.side_bar_width)
         left, top, right, bottom = bounds
 
         draw_label(draw, left, top, "AUDIO CONTROL", app.font, ACCENT)
@@ -410,17 +406,17 @@ class SystemScreen(Screen):
 
     # ── Input Handling ─────────────────────────────────────────
 
-    def on_button(self, button: str, long_press: bool) -> bool:
+    def on_button(self, slot: str, long_press: bool) -> bool:
         if self.detail_active is not None:
-            return self._on_detail_button(button, long_press)
+            return self._on_detail_button(slot, long_press)
 
-        if button == "X" and long_press:
+        if slot == RIGHT_TOP and long_press:
             self.context.app.set_screen("home")
             return True
-        if button == "X":
+        if slot == RIGHT_TOP:
             self.context.app.set_screen("home")
             return True
-        if button == "Y":
+        if slot == RIGHT_BOTTOM:
             if long_press:
                 self.context.app.set_screen("term")
                 return True
@@ -428,64 +424,64 @@ class SystemScreen(Screen):
             self.detail_active = "core"
             self.detail_scroll = 0
             return True
-        if button == "A":
+        if slot == LEFT_TOP:
             return True
-        if button == "B":
+        if slot == LEFT_BOTTOM:
             return True
         return False
 
-    def _on_detail_button(self, button: str, long_press: bool) -> bool:
+    def _on_detail_button(self, slot: str, long_press: bool) -> bool:
         if self.detail_active == "wireless":
-            return self._on_wireless_detail_button(button, long_press)
+            return self._on_wireless_detail_button(slot, long_press)
         if self.detail_active == "cues":
-            return self._on_cues_detail_button(button, long_press)
-        if button == "Y":
+            return self._on_cues_detail_button(slot, long_press)
+        if slot == RIGHT_BOTTOM:
             self._leave_detail()
             return True
         return False
 
-    def _on_wireless_detail_button(self, button: str, long_press: bool) -> bool:
+    def _on_wireless_detail_button(self, slot: str, long_press: bool) -> bool:
         if self.entering_password:
-            if button == "A" and self.password_entry:
+            if slot == LEFT_TOP and self.password_entry:
                 self.password_entry = self.password_entry[:-1]
                 self.status_line = "deleted"
                 return True
-            if button == "B":
+            if slot == LEFT_BOTTOM:
                 self.password_entry += " "
                 self.status_line = "space"
                 return True
-            if button == "X":
+            if slot == RIGHT_TOP:
                 self._cancel_password_entry()
                 return True
-            if button == "Y":
+            if slot == RIGHT_BOTTOM:
                 self._submit_password_entry()
                 return True
             return False
-        if button == "Y":
+        if slot == RIGHT_BOTTOM:
             self._leave_detail()
             return True
-        if button == "X":
+        if slot == RIGHT_TOP:
             self._enter_wifi_config(force_scan=True)
             return True
-        if button == "A":
+        if slot == LEFT_TOP:
             self._select_wifi_network(-1)
             return True
-        if button == "B":
+        if slot == LEFT_BOTTOM:
             self._select_wifi_network(1)
             return True
         return False
 
-    def _on_cues_detail_button(self, button: str, long_press: bool) -> bool:
+    def _on_cues_detail_button(self, slot: str, long_press: bool) -> bool:
         app = self.context.app
         status = app.accents.status
-        if button == "Y":
+        if slot == RIGHT_BOTTOM:
             self._leave_detail()
             return True
         if not status.whisplay_available:
             self.status_line = "whisplay hardware required"
             app.accents.trigger("error")
             return True
-        if button == "A":
+        if slot == LEFT_TOP:
             if not status.audio_available:
                 self.status_line = "speaker unavailable"
                 app.accents.trigger("error")
@@ -493,7 +489,7 @@ class SystemScreen(Screen):
             app.accents.adjust_volume(-10)
             self.status_line = f"volume {app.accents.status.volume_percent}%"
             return True
-        if button == "B":
+        if slot == LEFT_BOTTOM:
             if not status.audio_available:
                 self.status_line = "speaker unavailable"
                 app.accents.trigger("error")
@@ -501,7 +497,7 @@ class SystemScreen(Screen):
             app.accents.adjust_volume(10)
             self.status_line = f"volume {app.accents.status.volume_percent}%"
             return True
-        if button == "X":
+        if slot == RIGHT_TOP:
             if not status.audio_available:
                 self.status_line = "speaker unavailable"
                 app.accents.trigger("error")
@@ -624,16 +620,41 @@ class SystemScreen(Screen):
         self.status_line = "W wireless  C core  L link"
         self.invalidate_background()
 
-    def get_button_hints(self) -> list[str]:
+    def get_button_hints(self) -> dict[str, str]:
         if self.detail_active == "wireless":
             if self.entering_password:
-                return ["A del", "B spc", "X cancel", "Y join"]
-            return ["A prev", "B next", "X scan", "Y back"]
+                return {
+                    LEFT_TOP: "del",
+                    LEFT_BOTTOM: "spc",
+                    RIGHT_TOP: "cancel",
+                    RIGHT_BOTTOM: "join",
+                }
+            return {
+                LEFT_TOP: "prev",
+                LEFT_BOTTOM: "next",
+                RIGHT_TOP: "scan",
+                RIGHT_BOTTOM: "back",
+            }
         if self.detail_active == "cues":
-            return ["A vol-", "B vol+", "X mute", "Y back"]
+            return {
+                LEFT_TOP: "vol-",
+                LEFT_BOTTOM: "vol+",
+                RIGHT_TOP: "mute",
+                RIGHT_BOTTOM: "back",
+            }
         if self.detail_active is not None:
-            return ["-", "-", "-", "Y back"]
-        return ["-", "-", "X home", "Y detail"]
+            return {
+                LEFT_TOP: "-",
+                LEFT_BOTTOM: "-",
+                RIGHT_TOP: "-",
+                RIGHT_BOTTOM: "back",
+            }
+        return {
+            LEFT_TOP: "-",
+            LEFT_BOTTOM: "-",
+            RIGHT_TOP: "home",
+            RIGHT_BOTTOM: "detail",
+        }
 
     # ── WiFi Helpers ───────────────────────────────────────────
 

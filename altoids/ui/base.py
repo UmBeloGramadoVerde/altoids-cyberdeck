@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from PIL import Image, ImageDraw
 
+from ..buttons import SLOTS
 from ..colors import BG
 
 if TYPE_CHECKING:
@@ -29,7 +30,7 @@ class Screen:
     def render(self, draw: "ImageDraw.ImageDraw", buffer: "Image.Image") -> None:
         raise NotImplementedError
 
-    def on_button(self, button: str, long_press: bool) -> bool:
+    def on_button(self, slot: str, long_press: bool) -> bool:
         return False
 
     def on_keyboard_event(self, event: "KeyboardEvent") -> bool:
@@ -38,8 +39,8 @@ class Screen:
     def on_wake(self) -> None:
         return
 
-    def get_button_hints(self) -> list[str]:
-        return ["-", "-", "-", "-"]
+    def get_button_hints(self) -> dict[str, str]:
+        return {slot: "-" for slot in SLOTS}
 
     def debug_state(self) -> dict[str, object]:
         return {}

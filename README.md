@@ -9,7 +9,6 @@ This repository currently contains the first working scaffold of that system:
 - a quick note capture screen with typed and voice input
 - a tmux-backed terminal screen
 - a system screen with device stats and Wi‑Fi controls
-- TinScope, a keyboard-reachable network field agent with persisted reports
 - a sleep manager for backlight timeout
 - deployment/config scaffolding for `systemd`, `tmux-resurrect`, and `tmux-continuum`
 
@@ -144,7 +143,7 @@ Keyboard behavior on the terminal screen:
 - `CMD+1`..`CMD+9`: jump to tmux windows 1 through 9
 - `CMD+0`: jump to tmux window 10
 - `CMD+N` / `CMD+K`: create / close tmux window
-- `CMD+Q` / `CMD+T` / `CMD+S` / `CMD+I` / `CMD+G` / `CMD+R`: jump to home / terminal / system-settings / notes / games / TinScope
+- `CMD+Q` / `CMD+T` / `CMD+S` / `CMD+I` / `CMD+G`: jump to home / terminal / system-settings / notes / games
 
 Note: the plan called for `pyte`-based ANSI rendering, but the current code strips ANSI sequences and renders plain text via [altoids/renderer.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/renderer.py:1). That is a deliberate simplification for the first pass.
 
@@ -198,16 +197,6 @@ If the selected Wi‑Fi network is secured and no working password is cached, th
 On the system screen, `CMD+C` enters Wi‑Fi setup.
 
 Wi‑Fi management is implemented in [altoids/wifi.py](/Users/kaynaoliveira/Documents/GitHub/altoids/altoids/wifi.py:1) and currently depends on `nmcli`, which means the Pi should use NetworkManager.
-
-### TinScope
-
-Implemented in [altoids/ui/tinscope.py](/home/kayna/altoids-cyberdeck/altoids/ui/tinscope.py:1).
-
-TinScope is a compact network field agent for the deck UI. It runs a Network Field Kit mission, keeps the main screen focused on state and approvals, and stores detailed network memory under `.runtime/tinscope/`.
-
-The full flow is keyboard reachable: `Enter` starts, approves, or opens the selected inbox item; `Space` shows context; `Esc` denies or backs out; arrows select and scroll. Detailed results open in a `cdx`-style inspection overlay instead of being packed into the tiny display.
-
-See [docs/tinscope.md](/home/kayna/altoids-cyberdeck/docs/tinscope.md:1) for controls, persistence, reports, and inspection behavior.
 
 ## Configuration
 

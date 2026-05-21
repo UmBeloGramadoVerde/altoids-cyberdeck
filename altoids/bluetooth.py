@@ -12,14 +12,15 @@ class BluetoothStatus:
 
 
 class BluetoothMonitor:
-    def __init__(self) -> None:
+    def __init__(self, poll_interval_seconds: float = 0.5) -> None:
         self.status = BluetoothStatus()
         self.available = True
         self._last_poll_at = 0.0
+        self.poll_interval_seconds = max(0.1, poll_interval_seconds)
 
     def poll(self) -> BluetoothStatus:
         now = time.monotonic()
-        if now - self._last_poll_at < 2.0:
+        if now - self._last_poll_at < self.poll_interval_seconds:
             return self.status
         self._last_poll_at = now
         try:

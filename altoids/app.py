@@ -19,6 +19,7 @@ except ModuleNotFoundError:  # pragma: no cover
 
 from .accents import AccentManager
 from .bluetooth import BluetoothMonitor
+from .buttons import BUTTON_TO_SLOT, LEFT_BOTTOM, LEFT_TOP, RIGHT_BOTTOM, RIGHT_TOP
 from .colors import ACCENT, BG, DIM, FG, SURFACE_ALT
 from .config import AltoidsConfig, load_config
 from .codex_session import CodexSessionStore
@@ -31,9 +32,9 @@ from .terminal import TmuxManager
 from .voice import VoiceManager, VoiceResult
 from .wifi import WifiManager
 from .webviewer import WebViewer
-from .ui import EmulationScreen, HomeScreen, Screen, ScreenContext, SystemScreen, TerminalScreen, TinScopeScreen
+from .ui import EmulationScreen, HomeScreen, Screen, ScreenContext, SystemScreen, TerminalScreen
 from .ui.widgets import draw_label
-from .ui.widgets import draw_button_bar
+from .ui.widgets import SIDE_BAR_WIDTH, draw_side_bars
 
 
 @dataclass(slots=True)
@@ -105,7 +106,6 @@ COMMAND_SPECS: tuple[CommandSpec, ...] = (
     CommandSpec("s", "system/settings", "CMD+S", "screen", target="system", hint="S"),
     CommandSpec("i", "notes", "CMD+I", "screen", target="notes", hint="I"),
     CommandSpec("g", "games", "CMD+G", "screen", target="emu", hint="G"),
-    CommandSpec("r", "tinscope", "CMD+R", "screen", target="tinscope", hint="R"),
     CommandSpec("[", "previous tmux window", "CMD+[", "tmux_previous", contexts=("term",), hint="[", help_page="TMUX"),
     CommandSpec("]", "next tmux window", "CMD+]", "tmux_next", contexts=("term",), hint="]", help_page="TMUX"),
     CommandSpec("n", "new tmux window", "CMD+N", "tmux_new", contexts=("term",), hint="N", help_page="TMUX"),
@@ -160,14 +160,13 @@ class AltoidsApp:
         self.sleep_manager = SleepManager(config.sleep.idle_seconds)
         self.accents = AccentManager(self.display, config.audio, config.led)
         self.voice = VoiceManager(config.voice, enabled=config.voice.enabled and self.display.is_whisplay)
-        self.screen_order = ["home", "notes", "tinscope", "emu", "term", "system"]
+        self.screen_order = ["home", "notes", "emu", "term", "system"]
         context = ScreenContext(app=self)
         self._screen_context = context
         self.screens: dict[str, Screen] = {
             "home": HomeScreen(context),
         }
         self._screen_factories: dict[str, Callable[[], Screen]] = {
-            "tinscope": self._create_tinscope_screen,
             "emu": self._create_emulation_screen,
             "term": self._create_terminal_screen,
             "system": self._create_system_screen,
@@ -227,8 +226,8 @@ class AltoidsApp:
         return self._screen(self.active_screen_name)
 
     @property
-    def shows_button_bar(self) -> bool:
-        return not self.display.is_whisplay
+    def side_bar_width(self) -> int:
+        return 0 if self.display.is_whisplay else SIDE_BAR_WIDTH
 
     def set_screen(self, name: str) -> None:
         known_screens = getattr(self, "screen_order", tuple(self.screens.keys()))
@@ -254,10 +253,6 @@ class AltoidsApp:
     def _create_emulation_screen(self) -> Screen:
         from .ui.emulation import EmulationScreen
         return EmulationScreen(self._screen_context)
-
-    def _create_tinscope_screen(self) -> Screen:
-        from .ui.tinscope import TinScopeScreen
-        return TinScopeScreen(self._screen_context)
 
     def _create_terminal_screen(self) -> Screen:
         from .ui.term import TerminalScreen
@@ -290,7 +285,8 @@ class AltoidsApp:
         if self.help_visible:
             self.needs_redraw |= self._handle_help_button(event)
             return
-        self.needs_redraw |= self.active_screen.on_button(event.button, event.long_press)
+        slot = BUTTON_TO_SLOT[self.display._flip_180].get(event.button, event.button)
+        self.needs_redraw |= self.active_screen.on_button(slot, event.long_press)
 
     def handle_keyboard_event(self, event: KeyboardEvent) -> None:
         self._mark_input_event()
@@ -613,24 +609,6 @@ class AltoidsApp:
                 ],
             ),
             HelpPage(
-                title="TINSCOPE",
-                rows=[
-                    *self._command_help_rows("TINSCOPE"),
-                    ("start mission", "Enter / X"),
-                    ("approve request", "Enter / X"),
-                    ("deny request", "Esc"),
-                    ("inspect item", "Enter / Tab"),
-                    ("context", "Space / Y"),
-                    ("select item", "Up/Down"),
-                    ("switch page", "Left/Right"),
-                    ("run action", "Actions: Enter"),
-                    ("overlay scroll", "Up/Down"),
-                    ("overlay item", "Left/Right"),
-                    ("close overlay", "Enter/Esc"),
-                    ("home", "Esc / Q"),
-                ],
-            ),
-            HelpPage(
                 title="NOTES",
                 rows=[
                     *self._command_help_rows("NOTES"),
@@ -669,8 +647,6 @@ class AltoidsApp:
     def _command_help_rows(self, page_title: str) -> list[tuple[str, str]]:
         if page_title == "EMU":
             return [(spec.action, spec.combo) for spec in COMMAND_SPECS if spec.target == "emu"]
-        if page_title == "TINSCOPE":
-            return [(spec.action, spec.combo) for spec in COMMAND_SPECS if spec.target == "tinscope"]
         if page_title == "NOTES":
             return [(spec.action, spec.combo) for spec in COMMAND_SPECS if spec.target == "notes"]
         return [
@@ -689,13 +665,14 @@ class AltoidsApp:
         if event.long_press:
             self.toggle_help()
             return True
-        if event.button == "A":
+        slot = BUTTON_TO_SLOT[self.display._flip_180].get(event.button, event.button)
+        if slot == LEFT_TOP:
             self._set_help_page_index((self.help_page_index - 1) % len(self.help_pages))
             return True
-        if event.button == "B":
+        if slot == LEFT_BOTTOM:
             self._set_help_page_index((self.help_page_index + 1) % len(self.help_pages))
             return True
-        if event.button in {"X", "Y"}:
+        if slot in {RIGHT_TOP, RIGHT_BOTTOM}:
             self.toggle_help()
             return True
         return False
@@ -763,7 +740,6 @@ class AltoidsApp:
             "term": "TMUX",
             "notes": "NOTES",
             "emu": "EMU",
-            "tinscope": "TINSCOPE",
             "system": "SYSTEM",
         }.get(self._help_context_key(), "GLOBAL")
         for index, page in enumerate(self.help_pages):
@@ -842,6 +818,19 @@ class AltoidsApp:
     def render(self) -> None:
         self.draw.rectangle((0, 0, self.config.display.width, self.config.display.height), fill=BG)
         self.active_screen.render(self.draw, self.buffer)
+        if self.side_bar_width:
+            draw_side_bars(
+                self.draw,
+                self.config.display.width,
+                self.config.display.height,
+                {
+                    LEFT_TOP: "prev",
+                    LEFT_BOTTOM: "next",
+                    RIGHT_TOP: "close",
+                    RIGHT_BOTTOM: "close",
+                } if self.help_visible else self.active_screen.get_button_hints(),
+                self.font,
+            )
         if self.command_mode_active:
             hints = self._command_mode_hints()
             hint_text = " ".join(hints)
@@ -854,14 +843,6 @@ class AltoidsApp:
         if self.help_visible:
             self._render_help_overlay()
         self._render_voice_overlay()
-        if self.shows_button_bar:
-            draw_button_bar(
-                self.draw,
-                self.config.display.width,
-                self.config.display.height,
-                ["A prev", "B next", "X close", "Y close"] if self.help_visible else self.active_screen.get_button_hints(),
-                self.font,
-            )
         self.display.update(self.buffer)
         if self.web_viewer is not None:
             self.web_viewer.update(self.buffer)

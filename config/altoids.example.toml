@@ -21,7 +21,6 @@ font_path = "fonts/terminus.pil"
 font_size = 12
 message_interval = 12.0
 mascot_frame_seconds = 0.5
-button_labels = ["A", "B", "X", "Y"]
 
 [terminal]
 session_name = "altoids"

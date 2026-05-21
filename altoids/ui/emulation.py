@@ -8,6 +8,7 @@ from typing import Any
 
 from PIL import Image, ImageDraw
 
+from ..buttons import LEFT_BOTTOM, LEFT_TOP, RIGHT_BOTTOM, RIGHT_TOP
 from ..chip8 import Chip8, Chip8Error
 from ..colors import ACCENT, BG, COOL, DANGER, DIM, FG, INFO, SURFACE_GRID, SURFACE_INSET, SURFACE_PANEL, WARN
 from ..input_keyboard import KeyboardEvent
@@ -69,9 +70,9 @@ class EmulationScreen(Screen):
     }
 
     button_map = {
-        "A": 0x4,
-        "B": 0x6,
-        "X": 0x5,
+        LEFT_TOP: 0x4,
+        LEFT_BOTTOM: 0x6,
+        RIGHT_TOP: 0x5,
     }
 
     rom_key_overrides = {
@@ -284,44 +285,44 @@ class EmulationScreen(Screen):
             draw_label(draw, width - 68, 176, "BEEP", app.font, beep_color)
         draw_label(draw, width - 78, height - 25, "LONG Y CARTS", app.font, DIM)
 
-    def on_button(self, button: str, long_press: bool) -> bool:
+    def on_button(self, slot: str, long_press: bool) -> bool:
         if self.mode == "run":
-            if button == "Y" and long_press:
+            if slot == RIGHT_BOTTOM and long_press:
                 self.mode = "select"
                 self._clear_keys()
                 return True
-            if button == "Y":
+            if slot == RIGHT_BOTTOM:
                 self._set_run_notice("hold Y for carts")
                 return True
-            key = self.button_map.get(button)
+            key = self.button_map.get(slot)
             if key is not None:
                 self._tap_key(key)
                 return True
             return False
         if self.mode == "detail":
-            if button == "A":
+            if slot == LEFT_TOP:
                 self._scroll_detail(-3)
                 return True
-            if button == "B":
+            if slot == LEFT_BOTTOM:
                 self._scroll_detail(3)
                 return True
-            if button == "X":
+            if slot == RIGHT_TOP:
                 self._load_selection()
                 return True
-            if button == "Y":
+            if slot == RIGHT_BOTTOM:
                 self.mode = "select"
                 return True
             return False
-        if button == "A":
+        if slot == LEFT_TOP:
             self._move_selection(-1)
             return True
-        if button == "B":
+        if slot == LEFT_BOTTOM:
             self._move_selection(1)
             return True
-        if button == "X":
+        if slot == RIGHT_TOP:
             self._load_selection()
             return True
-        if button == "Y":
+        if slot == RIGHT_BOTTOM:
             self._open_detail()
             return True
         return False
@@ -400,12 +401,27 @@ class EmulationScreen(Screen):
             return True
         return False
 
-    def get_button_hints(self) -> list[str]:
+    def get_button_hints(self) -> dict[str, str]:
         if self.mode == "run":
-            return ["A key4", "B key6", "X key5", "Y hold"]
+            return {
+                LEFT_TOP: "key4",
+                LEFT_BOTTOM: "key6",
+                RIGHT_TOP: "key5",
+                RIGHT_BOTTOM: "hold",
+            }
         if self.mode == "detail":
-            return ["A up", "B down", "X run", "Y back"]
-        return ["A up", "B down", "X run", "Y info"]
+            return {
+                LEFT_TOP: "up",
+                LEFT_BOTTOM: "down",
+                RIGHT_TOP: "run",
+                RIGHT_BOTTOM: "back",
+            }
+        return {
+            LEFT_TOP: "up",
+            LEFT_BOTTOM: "down",
+            RIGHT_TOP: "run",
+            RIGHT_BOTTOM: "info",
+        }
 
     def _load_selection(self) -> None:
         if not self.cartridges:

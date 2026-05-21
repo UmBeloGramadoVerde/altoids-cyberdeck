@@ -17,7 +17,7 @@ altoids/          # Main Python package
   app.py          # App loop, screen framework, main()
   display.py      # Display backend abstraction (Whisplay / Display HAT Mini / mock)
   config.py       # Config dataclasses, loads config/altoids.toml
-  ui/             # Screen implementations (home, term, system, tinscope, emulation)
+  ui/             # Screen implementations (home, term, system, emulation)
 config/           # Deployment configs (systemd, tmux, toml)
 scripts/          # Benchmarks and utilities
 tests/            # Pytest test suite

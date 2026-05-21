@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from PIL import ImageDraw, ImageFont
 
+from ..buttons import LEFT_BOTTOM, LEFT_TOP, RIGHT_BOTTOM, RIGHT_TOP
 from ..colors import ACCENT, BG, DIM, FG, SURFACE_ALT, SURFACE_GRID, SURFACE_INSET, SURFACE_OFF, SURFACE_PANEL
 
 BUTTON_BAR_HEIGHT = 24
+SIDE_BAR_WIDTH = 12
 
 
 def draw_progress_bar(draw: ImageDraw.ImageDraw, x: int, y: int, width: int, pct: float, color: str = ACCENT) -> None:
@@ -111,18 +113,18 @@ def draw_detail_frame(
     title: str,
     font: ImageFont.ImageFont,
     color: str = ACCENT,
-    footer_height: int = 24,
+    side_bar_width: int = 0,
 ) -> tuple[int, int, int, int]:
     """Full-screen detail panel. Returns content bounds (left, top, right, bottom)."""
     draw_label(draw, 12, 6, f"{title} // DETAIL", font, color)
     draw_separator(draw, 20, width)
     content_top = 24
-    content_bottom = height - footer_height - 6
-    bounds = (8, content_top, width - 8, content_bottom)
+    content_bottom = height - 6
+    bounds = (side_bar_width + 8, content_top, width - side_bar_width - 8, content_bottom)
     draw.rounded_rectangle(bounds, radius=6, outline=color, fill=SURFACE_PANEL)
     draw_corner_ticks(draw, bounds, color=color, length=6)
     draw_scanlines(draw, bounds, step=8, color=SURFACE_GRID)
-    return (14, content_top + 8, width - 14, content_bottom - 8)
+    return (side_bar_width + 14, content_top + 8, width - side_bar_width - 14, content_bottom - 8)
 
 
 def draw_dot_grid(
@@ -147,3 +149,47 @@ def draw_button_bar(draw: ImageDraw.ImageDraw, width: int, height: int, hints: l
     segment_width = max(1, width // 4)
     for index, text in enumerate(labels[:4]):
         draw.text((8 + index * segment_width, top + 7), text, font=font, fill=FG if text != "-" else DIM)
+
+
+def draw_side_bars(
+    draw: ImageDraw.ImageDraw,
+    width: int,
+    height: int,
+    hints: dict[str, str],
+    font: ImageFont.ImageFont,
+) -> None:
+    left_bounds = (0, 0, SIDE_BAR_WIDTH - 1, height - 1)
+    right_bounds = (width - SIDE_BAR_WIDTH, 0, width - 1, height - 1)
+    for bounds in (left_bounds, right_bounds):
+        draw.rectangle(bounds, fill=SURFACE_ALT)
+    divider_y = height // 2
+    for x in range(1, SIDE_BAR_WIDTH - 1, 4):
+        draw.point((x, divider_y), fill=DIM)
+        draw.point((width - SIDE_BAR_WIDTH + x, divider_y), fill=DIM)
+
+    _draw_vertical_hint(draw, left_bounds, 0, hints.get(LEFT_TOP, "-"), font)
+    _draw_vertical_hint(draw, left_bounds, divider_y, hints.get(LEFT_BOTTOM, "-"), font)
+    _draw_vertical_hint(draw, right_bounds, 0, hints.get(RIGHT_TOP, "-"), font)
+    _draw_vertical_hint(draw, right_bounds, divider_y, hints.get(RIGHT_BOTTOM, "-"), font)
+
+
+def _draw_vertical_hint(
+    draw: ImageDraw.ImageDraw,
+    bounds: tuple[int, int, int, int],
+    top: int,
+    text: str,
+    font: ImageFont.ImageFont,
+) -> None:
+    left, _, right, bottom = bounds
+    half_bottom = bottom if top else bottom // 2
+    label = ((text or "-").strip() or "-").upper()
+    char_height = max(8, font.getbbox("A")[3] - font.getbbox("A")[1])
+    step = char_height + 1
+    total_height = len(label) * step - 1
+    region_height = max(1, half_bottom - top)
+    start_y = top + max(3, (region_height - total_height) // 2)
+    for index, char in enumerate(label):
+        char_width = font.getbbox(char)[2] - font.getbbox(char)[0]
+        x = left + max(1, (right - left - char_width + 1) // 2)
+        y = start_y + index * step
+        draw.text((x, y), char, font=font, fill=FG if label != "-" else DIM)
