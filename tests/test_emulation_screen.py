@@ -15,7 +15,7 @@ from altoids.ui.emulation import EmulationScreen
 class EmulationScreenTest(unittest.TestCase):
     def make_screen(self) -> EmulationScreen:
         app = SimpleNamespace(
-            config=SimpleNamespace(display=SimpleNamespace(width=280, height=240)),
+            config=SimpleNamespace(display=SimpleNamespace(width=320, height=240)),
             font=ImageFont.load_default(),
             font_large=ImageFont.load_default(),
         )

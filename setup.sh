@@ -74,6 +74,10 @@ if [ -n "$WM8960_INSTALLER" ]; then
   )
 fi
 
+# --- Install Python packages system-wide (dedicated cyberdeck, safe to break isolation) ---
+echo "Installing Python packages system-wide"
+sudo python3 -m pip install --break-system-packages -r "$ROOT_DIR/requirements.txt"
+
 # --- Create Python virtual environment and install packages ---
 sudo python3 -m venv --system-site-packages "$VENV_DIR"
 sudo "$VENV_DIR/bin/pip" install --upgrade pip

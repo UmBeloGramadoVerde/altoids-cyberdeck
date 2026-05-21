@@ -14,15 +14,15 @@ except ModuleNotFoundError:  # pragma: no cover
 @dataclass(slots=True)
 class DisplayConfig:
     backend: str = "auto"
-    width: int = 280
+    width: int = 320
     height: int = 240
     fps_active: int = 12
     fps_idle: int = 1
     backlight_brightness: float = 1.0
-    rotation: int = 270
+    rotation: int = 0
     driver_path: str = "vendor/Whisplay/runtime"
     transfer_quantization: str = "rgb565"
-    spi_speed_hz: int | None = None
+    spi_speed_hz: int | None = 100_000_000
     input_poll_interval: float = 0.005
     split_dirty_regions: bool = False
 

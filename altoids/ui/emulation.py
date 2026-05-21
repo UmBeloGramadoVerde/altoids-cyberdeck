@@ -265,7 +265,7 @@ class EmulationScreen(Screen):
         scale = max(1, scale)
         image = self.chip8.render_image(scale=scale, on=ACCENT, off="#030605")
         screen_width, screen_height = image.size
-        screen_left = 12 + (256 - screen_width) // 2
+        screen_left = (width - screen_width) // 2
         buffer.paste(image, (screen_left, screen_top))
         # Double outline for CRT depth
         inner_bounds = (screen_left - 1, screen_top - 1, screen_left + screen_width, screen_top + screen_height)

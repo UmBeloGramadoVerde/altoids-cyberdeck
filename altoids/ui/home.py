@@ -62,66 +62,95 @@ class HomeScreen(Screen):
         width = app.config.display.width
         height = app.config.display.height
         footer_height = 24 if app.shows_button_bar else 0
-        content_bottom = height - footer_height - 8
+        layout = self._layout(width, height, footer_height)
         bluetooth_name = app.bluetooth_status.device_name or "SCAN"
-        message_lines = self._message_lines(MESSAGES[self.message_index], 27)
+        message_limit = max(8, (layout["marquee_bounds"][2] - layout["marquee_bounds"][0] - 48) // 7)
+        message_lines = self._message_lines(MESSAGES[self.message_index], message_limit)
         signature = (width, height, footer_height)
         buffer.paste(self.cached_background(signature, buffer.size, self._paint_static_background))
         draw = ImageDraw.Draw(buffer)
 
-        mascot_bounds = (12, 24, 116, 136)
-        clock_bounds = (124, 24, width - 12, 94)
-        care_bounds = (124, 102, width - 12, 136)
-        marquee_bounds = (12, 144, width - 12, 176)
-        left_status_bounds = (12, 184, 94, content_bottom)
-        mid_status_bounds = (100, 184, 182, content_bottom)
-        right_status_bounds = (188, 184, width - 12, content_bottom)
+        mascot_bounds = layout["mascot_bounds"]
+        clock_bounds = layout["clock_bounds"]
+        care_bounds = layout["care_bounds"]
+        marquee_bounds = layout["marquee_bounds"]
+        left_status_bounds = layout["left_status_bounds"]
+        mid_status_bounds = layout["mid_status_bounds"]
+        right_status_bounds = layout["right_status_bounds"]
+        content_bottom = layout["content_bottom"]
+        clock_left = clock_bounds[0] + 14
+        clock_bar_width = max(36, clock_bounds[2] - clock_bounds[0] - 72)
 
         self._draw_pet(draw, buffer, mascot, mascot_bounds)
 
-        draw_label(draw, 138, 40, now, app.font_large, FG)
-        draw_label(draw, 138, 68, f"UP {uptime}", app.font, FG)
-        draw_segmented_bar(draw, 206, 72, 44, stats["cpu_pct"], segments=5, color=ACCENT)
-        draw_label(draw, 204, 58, f"CPU {int(stats['cpu_pct'] * 100):>3}%", app.font, DIM)
+        draw_label(draw, clock_left, 40, now, app.font_large, FG)
+        draw_label(draw, clock_left, 68, f"UP {uptime}", app.font, FG)
+        draw_label(draw, clock_bounds[2] - 66, 58, f"CPU {int(stats['cpu_pct'] * 100):>3}%", app.font, DIM)
+        draw_segmented_bar(draw, clock_bounds[2] - clock_bar_width - 14, 72, clock_bar_width, stats["cpu_pct"], segments=5, color=ACCENT)
 
-        self._draw_care_meter(draw, care_bounds[0] + 10, care_bounds[1] + 21, "SNK", self.pet.snack, WARN)
-        self._draw_care_meter(draw, care_bounds[0] + 56, care_bounds[1] + 21, "FUN", self.pet.play, AUX)
-        self._draw_care_meter(draw, care_bounds[0] + 102, care_bounds[1] + 21, "PWR", self.pet.charge, ACCENT)
+        care_step = max(36, (care_bounds[2] - care_bounds[0]) // 3)
+        for index, (label, value, color) in enumerate(
+            [("SNK", self.pet.snack, WARN), ("FUN", self.pet.play, AUX), ("PWR", self.pet.charge, ACCENT)]
+        ):
+            self._draw_care_meter(draw, care_bounds[0] + 10 + index * care_step, care_bounds[1] + 21, label, value, color)
 
-        draw_label(draw, 24, marquee_bounds[1] + 17, ">>", app.terminal_font, WARN)
-        draw_label(draw, 48, marquee_bounds[1] + 18, message_lines[0], app.font, FG)
+        marquee_left = marquee_bounds[0] + 12
+        draw_label(draw, marquee_left, marquee_bounds[1] + 17, ">>", app.terminal_font, WARN)
+        draw_label(draw, marquee_left + 24, marquee_bounds[1] + 18, message_lines[0], app.font, FG)
         if len(message_lines) > 1:
-            draw_label(draw, 48, marquee_bounds[1] + 27, message_lines[1], app.font, WARN)
+            draw_label(draw, marquee_left + 24, marquee_bounds[1] + 27, message_lines[1], app.font, WARN)
 
-        draw_status_dot(draw, 22, left_status_bounds[1] + 13, True, ACCENT)
-        draw_label(draw, 36, left_status_bounds[1] + 10, f"{stats['terminal_windows']:>2}", app.font_large, FG)
-        draw_label(draw, 58, content_bottom - 20, "LIVE", app.font, DIM)
+        draw_status_dot(draw, left_status_bounds[0] + 10, left_status_bounds[1] + 13, True, ACCENT)
+        draw_label(draw, left_status_bounds[0] + 24, left_status_bounds[1] + 10, f"{stats['terminal_windows']:>2}", app.font_large, FG)
+        draw_label(draw, left_status_bounds[0] + 46, content_bottom - 20, "LIVE", app.font, DIM)
 
-        draw_status_dot(draw, 110, mid_status_bounds[1] + 13, app.bluetooth_status.connected, INFO)
-        draw_label(draw, 124, mid_status_bounds[1] + 10, "LINK" if app.bluetooth_status.connected else "IDLE", app.font, FG if app.bluetooth_status.connected else DIM)
-        draw_label(draw, 108, content_bottom - 20, self._trim(bluetooth_name.upper(), 8), app.font, INFO if app.bluetooth_status.connected else DIM)
+        draw_status_dot(draw, mid_status_bounds[0] + 10, mid_status_bounds[1] + 13, app.bluetooth_status.connected, INFO)
+        draw_label(
+            draw,
+            mid_status_bounds[0] + 24,
+            mid_status_bounds[1] + 10,
+            "LINK" if app.bluetooth_status.connected else "IDLE",
+            app.font,
+            FG if app.bluetooth_status.connected else DIM,
+        )
+        draw_label(
+            draw,
+            mid_status_bounds[0] + 8,
+            content_bottom - 20,
+            self._trim(bluetooth_name.upper(), max(4, (mid_status_bounds[2] - mid_status_bounds[0] - 16) // 7)),
+            app.font,
+            INFO if app.bluetooth_status.connected else DIM,
+        )
 
         temp_color = ACCENT if not stats["temperature_hot"] else WARN
-        draw_label(draw, 198, right_status_bounds[1] + 10, stats["temperature_label"], app.font_large, temp_color)
-        draw_segmented_bar(draw, 198, content_bottom - 14, 54, stats["temperature_pct"], segments=6, color=temp_color)
+        draw_label(draw, right_status_bounds[0] + 10, right_status_bounds[1] + 10, stats["temperature_label"], app.font_large, temp_color)
+        draw_segmented_bar(
+            draw,
+            right_status_bounds[0] + 10,
+            content_bottom - 14,
+            max(40, right_status_bounds[2] - right_status_bounds[0] - 20),
+            stats["temperature_pct"],
+            segments=6,
+            color=temp_color,
+        )
 
     def _paint_static_background(self, draw: ImageDraw.ImageDraw, buffer) -> None:
         app = self.context.app
         width = app.config.display.width
         height = app.config.display.height
         footer_height = 24 if app.shows_button_bar else 0
-        content_bottom = height - footer_height - 8
+        layout = self._layout(width, height, footer_height)
 
         draw_label(draw, 12, 8, "HOME // FIELD UNIT", app.font, ACCENT)
         draw_label(draw, width - 88, 8, "VFD READY", app.font, WARN)
 
-        mascot_bounds = (12, 24, 116, 136)
-        clock_bounds = (124, 24, width - 12, 94)
-        care_bounds = (124, 102, width - 12, 136)
-        marquee_bounds = (12, 144, width - 12, 176)
-        left_status_bounds = (12, 184, 94, content_bottom)
-        mid_status_bounds = (100, 184, 182, content_bottom)
-        right_status_bounds = (188, 184, width - 12, content_bottom)
+        mascot_bounds = layout["mascot_bounds"]
+        clock_bounds = layout["clock_bounds"]
+        care_bounds = layout["care_bounds"]
+        marquee_bounds = layout["marquee_bounds"]
+        left_status_bounds = layout["left_status_bounds"]
+        mid_status_bounds = layout["mid_status_bounds"]
+        right_status_bounds = layout["right_status_bounds"]
 
         draw_panel(draw, mascot_bounds, title="MASCOT", title_font=app.font, outline=AUX, title_color=AUX, fill=SURFACE_ALT, inner_outline=SURFACE_INSET)
         draw_scanlines(draw, mascot_bounds, step=6)
@@ -134,6 +163,34 @@ class HomeScreen(Screen):
         draw_panel(draw, left_status_bounds, title="SHELLS", title_font=app.font, outline=ACCENT, title_color=ACCENT)
         draw_panel(draw, mid_status_bounds, title="BT", title_font=app.font, outline=INFO, title_color=INFO)
         draw_panel(draw, right_status_bounds, title="THERM", title_font=app.font, outline=ACCENT, title_color=ACCENT)
+
+    @staticmethod
+    def _layout(width: int, height: int, footer_height: int) -> dict[str, object]:
+        panel_left = 12
+        panel_right = width - 12
+        content_bottom = height - footer_height - 8
+        mascot_bounds = (panel_left, 24, panel_left + 104, 136)
+        clock_left = mascot_bounds[2] + 8
+        clock_bounds = (clock_left, 24, panel_right, 94)
+        care_bounds = (clock_left, 102, panel_right, 136)
+        marquee_bounds = (panel_left, 144, panel_right, 176)
+        bottom_inner = panel_right - panel_left
+        gap = 6
+        panel_width = (bottom_inner - gap * 2) // 3
+        left_status_bounds = (panel_left, 184, panel_left + panel_width, content_bottom)
+        mid_left = left_status_bounds[2] + gap
+        mid_status_bounds = (mid_left, 184, mid_left + panel_width, content_bottom)
+        right_status_bounds = (mid_status_bounds[2] + gap, 184, panel_right, content_bottom)
+        return {
+            "content_bottom": content_bottom,
+            "mascot_bounds": mascot_bounds,
+            "clock_bounds": clock_bounds,
+            "care_bounds": care_bounds,
+            "marquee_bounds": marquee_bounds,
+            "left_status_bounds": left_status_bounds,
+            "mid_status_bounds": mid_status_bounds,
+            "right_status_bounds": right_status_bounds,
+        }
 
     def on_button(self, button: str, long_press: bool) -> bool:
         if button == "X":

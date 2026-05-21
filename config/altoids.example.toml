@@ -1,13 +1,15 @@
 [display]
 backend = "auto"
-width = 280
+# Display HAT Mini native 320x240. Whisplay users should set width = 280 and rotation = 270.
+width = 320
 height = 240
 fps_active = 12
 fps_idle = 1
 backlight_brightness = 1.0
-rotation = 270
+rotation = 0
 driver_path = "vendor/Whisplay/runtime"
-transfer_quantization = "rgb332"
+transfer_quantization = "rgb565"
+spi_speed_hz = 100000000
 input_poll_interval = 0.005
 split_dirty_regions = false
 

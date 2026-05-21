@@ -153,7 +153,7 @@ class AltoidsApp:
             scan_cache_seconds=config.wifi.scan_cache_seconds,
         )
         self.notes = NoteStore(config.root_dir)
-        self.button_input = ButtonInput(self.handle_button_event)
+        self.button_input = ButtonInput(self.handle_button_event, display=self.display)
         self.keyboard_input = KeyboardInput()
         self.bluetooth_monitor = BluetoothMonitor()
         self.bluetooth_status = self.bluetooth_monitor.poll()
@@ -902,6 +902,11 @@ class AltoidsApp:
 
                 if not self.input_render_pending:
                     self.bluetooth_status = self.bluetooth_monitor.poll()
+                    if self.display.backend_name == "displayhatmini":
+                        flip = not self.bluetooth_status.connected
+                        if flip != self.display._flip_180:
+                            self.display.set_flip_180(flip)
+                            self.needs_redraw = True
                 if self.command_mode_deadline and not self.command_mode_active:
                     self.command_mode_deadline = 0.0
                     self.needs_redraw = True

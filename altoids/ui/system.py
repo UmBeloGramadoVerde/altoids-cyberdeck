@@ -75,6 +75,7 @@ class SystemScreen(Screen):
         height = app.config.display.height
         footer_height = 24 if app.shows_button_bar else 0
         content_bottom = height - footer_height - 8
+        layout = self._overview_layout(width)
         signature = ("system_unified", width, height, footer_height)
         buffer.paste(self.cached_background(signature, buffer.size, self._paint_overview_background))
         draw = ImageDraw.Draw(buffer)
@@ -86,51 +87,65 @@ class SystemScreen(Screen):
         wifi_ssid = wifi_status.ssid or (ip_addr if wifi_connected and not wifi_status.ssid else wifi_status.state)
 
         temp_color = WARN if stats["temperature_hot"] else ACCENT
+        core_bounds = layout["core_bounds"]
+        load_bounds = layout["load_bounds"]
+        link_bounds = layout["link_bounds"]
+        wireless_bounds = layout["wireless_bounds"]
+        rig_bounds = layout["rig_bounds"]
+        cues_bounds = layout["cues_bounds"]
 
         # ── CORE panel content (background, left top) ──
-        draw_status_dot(draw, 22, 44, True, ACCENT)
-        draw_label(draw, 34, 42, "ONLINE", app.font, ACCENT)
-        draw_label(draw, 22, 58, self._trim(f"UP {stats['uptime']}", 14), app.font, FG)
-        draw_label(draw, 22, 72, self._trim(f"TMUX {stats['terminal_windows']}W", 14), app.font, DIM)
+        draw_status_dot(draw, core_bounds[0] + 12, 44, True, ACCENT)
+        draw_label(draw, core_bounds[0] + 24, 42, "ONLINE", app.font, ACCENT)
+        core_limit = max(10, (core_bounds[2] - core_bounds[0] - 12) // 7)
+        draw_label(draw, core_bounds[0] + 12, 58, self._trim(f"UP {stats['uptime']}", core_limit), app.font, FG)
+        draw_label(draw, core_bounds[0] + 12, 72, self._trim(f"TMUX {stats['terminal_windows']}W", core_limit), app.font, DIM)
 
         # ── LOAD panel content (foreground, right top) ──
-        self._draw_meter_row(draw, 118, 42, "CPU", stats["cpu_pct"], f"{int(stats['cpu_pct'] * 100):>3}%")
-        self._draw_meter_row(draw, 118, 58, "MEM", stats["mem_pct"], f"{int(stats['mem_pct'] * 100):>3}%")
-        self._draw_meter_row(draw, 118, 74, "TMP", stats["temperature_pct"], stats["temperature_label"], color=temp_color)
+        self._draw_meter_row(draw, load_bounds[0] + 16, 42, "CPU", stats["cpu_pct"], f"{int(stats['cpu_pct'] * 100):>3}%")
+        self._draw_meter_row(draw, load_bounds[0] + 16, 58, "MEM", stats["mem_pct"], f"{int(stats['mem_pct'] * 100):>3}%")
+        self._draw_meter_row(draw, load_bounds[0] + 16, 74, "TMP", stats["temperature_pct"], stats["temperature_label"], color=temp_color)
 
         # ── LINK panel content (background, left middle) ──
-        draw_status_dot(draw, 22, 108, wifi_connected, INFO)
-        draw_label(draw, 34, 106, "WIFI", app.font, DIM)
-        draw_label(draw, 64, 106, "ON" if wifi_connected else "OFF", app.font, INFO if wifi_connected else DIM)
-        draw_status_dot(draw, 22, 124, app.bluetooth_status.connected, COOL)
-        draw_label(draw, 34, 122, "BT", app.font, DIM)
-        draw_label(draw, 56, 122, "LIVE" if app.bluetooth_status.connected else "IDLE", app.font, COOL if app.bluetooth_status.connected else DIM)
-        draw_label(draw, 22, 138, self._trim(f"DSK {stats['disk_label']}", 14), app.font, DIM)
+        draw_status_dot(draw, link_bounds[0] + 12, 108, wifi_connected, INFO)
+        draw_label(draw, link_bounds[0] + 24, 106, "WIFI", app.font, DIM)
+        draw_label(draw, link_bounds[0] + 54, 106, "ON" if wifi_connected else "OFF", app.font, INFO if wifi_connected else DIM)
+        draw_status_dot(draw, link_bounds[0] + 12, 124, app.bluetooth_status.connected, COOL)
+        draw_label(draw, link_bounds[0] + 24, 122, "BT", app.font, DIM)
+        draw_label(draw, link_bounds[0] + 46, 122, "LIVE" if app.bluetooth_status.connected else "IDLE", app.font, COOL if app.bluetooth_status.connected else DIM)
+        draw_label(draw, link_bounds[0] + 12, 138, self._trim(f"DSK {stats['disk_label']}", core_limit), app.font, DIM)
 
         # ── WIRELESS panel content (foreground, right middle) ──
-        draw_label(draw, 118, 106, self._trim(f"NET {wifi_ssid.upper()}", 20), app.font, FG)
-        draw_segmented_bar(draw, 118, 124, 72, wifi_sig / 100.0, segments=7, color=INFO if wifi_connected else DIM)
-        draw_label(draw, 198, 122, f"{wifi_sig:>3}%", app.font, INFO if wifi_connected else DIM)
-        draw_label(draw, 118, 138, self._trim(f"IP {ip_addr}", 20), app.font, FG)
+        wireless_limit = max(12, (wireless_bounds[2] - wireless_bounds[0] - 20) // 7)
+        wireless_bar_width = max(56, wireless_bounds[2] - wireless_bounds[0] - 84)
+        wireless_left = wireless_bounds[0] + 16
+        draw_label(draw, wireless_left, 106, self._trim(f"NET {wifi_ssid.upper()}", wireless_limit), app.font, FG)
+        draw_segmented_bar(draw, wireless_left, 124, wireless_bar_width, wifi_sig / 100.0, segments=7, color=INFO if wifi_connected else DIM)
+        draw_label(draw, wireless_left + wireless_bar_width + 8, 122, f"{wifi_sig:>3}%", app.font, INFO if wifi_connected else DIM)
+        draw_label(draw, wireless_left, 138, self._trim(f"IP {ip_addr}", wireless_limit), app.font, FG)
 
         # ── RIG panel content (background, left bottom) ──
         rig_online = accent_status.whisplay_available
-        draw_status_dot(draw, 22, 168, rig_online, AUX)
-        draw_label(draw, 34, 166, "WHSP", app.font, DIM)
-        draw_label(draw, 68, 166, "LIVE" if rig_online else "OFF", app.font, AUX if rig_online else DIM)
-        draw_label(draw, 22, 182, self._trim(f"LED {'ARM' if accent_status.led_enabled else 'OFF'}", 14), app.font, DIM)
+        rig_limit = max(10, (rig_bounds[2] - rig_bounds[0] - 12) // 7)
+        draw_status_dot(draw, rig_bounds[0] + 12, 168, rig_online, AUX)
+        draw_label(draw, rig_bounds[0] + 24, 166, "WHSP", app.font, DIM)
+        draw_label(draw, rig_bounds[0] + 58, 166, "LIVE" if rig_online else "OFF", app.font, AUX if rig_online else DIM)
+        draw_label(draw, rig_bounds[0] + 12, 182, self._trim(f"LED {'ARM' if accent_status.led_enabled else 'OFF'}", rig_limit), app.font, DIM)
 
         # ── CUES panel content (foreground, right bottom) ──
-        draw_label(draw, 148, 166, f"VOL {accent_status.volume_percent:>3}%", app.font, FG)
-        draw_segmented_bar(draw, 210, 168, 56, accent_status.volume_percent / 100.0, segments=6, color=ACCENT)
+        cues_left = cues_bounds[0] + 12
+        cues_bar_x = cues_left + 62
+        cues_bar_width = max(36, cues_bounds[2] - cues_bar_x - 12)
+        draw_label(draw, cues_left, 166, f"VOL {accent_status.volume_percent:>3}%", app.font, FG)
+        draw_segmented_bar(draw, cues_bar_x, 168, cues_bar_width, accent_status.volume_percent / 100.0, segments=6, color=ACCENT)
         mute_label = "MUTE" if accent_status.muted else "LIVE"
-        draw_status_dot(draw, 148, 184, not accent_status.muted, WARN if accent_status.muted else ACCENT)
-        draw_label(draw, 162, 182, "CUE", app.font, DIM)
-        draw_label(draw, 192, 182, mute_label, app.font, WARN if accent_status.muted else ACCENT)
+        draw_status_dot(draw, cues_left, 184, not accent_status.muted, WARN if accent_status.muted else ACCENT)
+        draw_label(draw, cues_left + 14, 182, "CUE", app.font, DIM)
+        draw_label(draw, cues_left + 44, 182, mute_label, app.font, WARN if accent_status.muted else ACCENT)
 
         # ── Status line ──
         status_y = content_bottom - 10 if footer_height else height - 18
-        draw_label(draw, 14, status_y, self._trim(self.status_line.upper(), 38), app.font, DIM)
+        draw_label(draw, 14, status_y, self._trim(self.status_line.upper(), max(20, (width - 28) // 7)), app.font, DIM)
 
     def _paint_overview_background(self, draw: ImageDraw.ImageDraw, buffer) -> None:
         app = self.context.app
@@ -143,17 +158,13 @@ class SystemScreen(Screen):
         draw_label(draw, width - 68, 8, "VFD DIAG", app.font, DIM)
         draw_separator(draw, 20, width)
 
-        # Row 1: CORE (bg) + LOAD (fg) — y=28..90
-        core_bounds = (10, 28, 106, 90)
-        load_bounds = (102, 28, width - 10, 90)
-
-        # Row 2: LINK (bg) + WIRELESS (fg) — y=96..156 (6px gap)
-        link_bounds = (10, 96, 106, 156)
-        wireless_bounds = (102, 96, width - 10, 156)
-
-        # Row 3: RIG (bg) + CUES (fg) — y=160..198 (4px gap, shorter)
-        rig_bounds = (10, 160, 134, 198)
-        cues_bounds = (136, 160, width - 10, 198)
+        layout = self._overview_layout(width)
+        core_bounds = layout["core_bounds"]
+        load_bounds = layout["load_bounds"]
+        link_bounds = layout["link_bounds"]
+        wireless_bounds = layout["wireless_bounds"]
+        rig_bounds = layout["rig_bounds"]
+        cues_bounds = layout["cues_bounds"]
 
         # Background panels (drawn first — recede visually)
         draw_panel(draw, core_bounds, title="CORE", title_font=app.font, outline=ACCENT, title_color=ACCENT)
@@ -167,6 +178,26 @@ class SystemScreen(Screen):
         draw_panel(draw, load_bounds, title="LOAD", title_font=app.font, outline=WARN, title_color=WARN)
         draw_panel(draw, wireless_bounds, title="WIRELESS", title_font=app.font, outline=COOL, title_color=COOL)
         draw_panel(draw, cues_bounds, title="CUES", title_font=app.font, outline=ACCENT, title_color=ACCENT)
+
+    @staticmethod
+    def _overview_layout(width: int) -> dict[str, tuple[int, int, int, int]]:
+        total = width - 20
+        col_split = 10 + total * 35 // 100
+        core_bounds = (10, 28, col_split, 90)
+        load_bounds = (col_split - 4, 28, width - 10, 90)
+        link_bounds = (10, 96, col_split, 156)
+        wireless_bounds = (col_split - 4, 96, width - 10, 156)
+        rig_split = 10 + total * 45 // 100
+        rig_bounds = (10, 160, rig_split, 198)
+        cues_bounds = (rig_split + 2, 160, width - 10, 198)
+        return {
+            "core_bounds": core_bounds,
+            "load_bounds": load_bounds,
+            "link_bounds": link_bounds,
+            "wireless_bounds": wireless_bounds,
+            "rig_bounds": rig_bounds,
+            "cues_bounds": cues_bounds,
+        }
 
     # ── Detail Views ──────────────────────────────────────────
 

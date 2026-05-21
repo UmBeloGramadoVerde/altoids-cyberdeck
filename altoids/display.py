@@ -47,7 +47,8 @@ class Display:
         self._mock_output_dir = self._resolve_mock_output_dir()
         self._last_mock_save_at = 0.0
         self._driver = None
-        self._last_whisplay_frame: Image.Image | None = None
+        self._last_frame: Image.Image | None = None
+        self._flip_180 = True
         self._standby = False
         self._led_generation = 0
         self._led_lock = threading.Lock()
@@ -130,13 +131,20 @@ class Display:
         if self._backend is not None:
             if self._backend_name == "displayhatmini":
                 frame = image if image.mode == "RGB" else image.convert("RGB")
-                frame = frame.transpose(Image.Transpose.ROTATE_180)
+                if self._flip_180:
+                    frame = frame.transpose(Image.Transpose.ROTATE_180)
                 hat_w = self._displayhatmini_buffer.width
                 hat_h = self._displayhatmini_buffer.height
                 if frame.size != (hat_w, hat_h):
                     frame = frame.resize((hat_w, hat_h))
-                self._displayhatmini_buffer.paste(frame)
-                self._backend.display()
+                regions = self._dirty_regions(frame)
+                if not regions:
+                    return
+                st = self._backend.st7789
+                for left, top, right, bottom in regions:
+                    payload = self._rgb565_bytes(frame.crop((left, top, right, bottom)))
+                    st.set_window(left, top, right - 1, bottom - 1)
+                    st.data(payload)
             else:
                 self._backend.display(image)
             return
@@ -214,6 +222,27 @@ class Display:
         self._standby = False
         if backlight_brightness is not None:
             self.set_backlight(backlight_brightness)
+
+    def set_flip_180(self, flip: bool) -> None:
+        if flip == self._flip_180:
+            return
+        self._flip_180 = flip
+        self._last_frame = None
+
+    def read_buttons(self) -> dict[str, bool]:
+        """Return current state of hardware buttons (True = pressed)."""
+        if self._backend_name != "displayhatmini" or self._backend is None:
+            return {}
+        try:
+            cls = self._driver.DisplayHATMini
+            return {
+                "A": self._backend.read_button(cls.BUTTON_A),
+                "B": self._backend.read_button(cls.BUTTON_B),
+                "X": self._backend.read_button(cls.BUTTON_X),
+                "Y": self._backend.read_button(cls.BUTTON_Y),
+            }
+        except Exception:
+            return {}
 
     def shutdown(self) -> None:
         self.clear_led()
@@ -317,13 +346,13 @@ class Display:
 
     def _dirty_regions(self, frame: Image.Image) -> list[tuple[int, int, int, int]]:
         full_bounds = (0, 0, frame.width, frame.height)
-        previous_frame = self._last_whisplay_frame
+        previous_frame = self._last_frame
         if previous_frame is None or previous_frame.size != frame.size:
-            self._last_whisplay_frame = frame.copy()
+            self._last_frame = frame.copy()
             return [full_bounds]
         difference = ImageChops.difference(frame, previous_frame)
         bbox = difference.getbbox()
-        self._last_whisplay_frame = frame.copy()
+        self._last_frame = frame.copy()
         if bbox is None:
             return []
         if self.split_dirty_regions:
@@ -427,6 +456,11 @@ class Display:
     def _apply_spi_speed(self) -> None:
         if self.spi_speed_hz is None or self._backend is None:
             return
-        spi = getattr(self._backend, "spi", None)
-        if spi is not None and hasattr(spi, "max_speed_hz"):
-            spi.max_speed_hz = int(self.spi_speed_hz)
+        candidates = [getattr(self._backend, "spi", None)]
+        st = getattr(self._backend, "st7789", None)
+        if st is not None:
+            candidates.append(getattr(st, "_spi", None))
+        for spi in candidates:
+            if spi is not None and hasattr(spi, "max_speed_hz"):
+                spi.max_speed_hz = int(self.spi_speed_hz)
+                return

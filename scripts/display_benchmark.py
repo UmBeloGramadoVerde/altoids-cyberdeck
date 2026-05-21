@@ -26,6 +26,7 @@ class ProfileStats:
     draw_image: list[float] = field(default_factory=list)
     set_window: list[float] = field(default_factory=list)
     send_data: list[float] = field(default_factory=list)
+    hat_display: list[float] = field(default_factory=list)
     draw_bytes: int = 0
     send_data_bytes: int = 0
 
@@ -74,6 +75,9 @@ def _profile_summary(profile: ProfileStats) -> dict[str, float | int]:
         "send_data_bytes": profile.send_data_bytes,
         "send_data_median_ms": statistics.median(_ms(profile.send_data)) if profile.send_data else 0.0,
         "send_data_mean_ms": statistics.fmean(_ms(profile.send_data)) if profile.send_data else 0.0,
+        "hat_display_calls": len(profile.hat_display),
+        "hat_display_median_ms": statistics.median(_ms(profile.hat_display)) if profile.hat_display else 0.0,
+        "hat_display_mean_ms": statistics.fmean(_ms(profile.hat_display)) if profile.hat_display else 0.0,
     }
 
 
@@ -98,6 +102,16 @@ def _print_result(result: BenchmarkResult) -> None:
             f"send_med={profile['send_data_median_ms']:>5.2f} ms "
             f"send_mean={profile['send_data_mean_ms']:>5.2f} ms "
             f"send_calls={profile['send_data_calls']:>3}"
+        )
+    if profile["hat_display_calls"]:
+        spi_ms = profile["hat_display_median_ms"]
+        prep_ms = max(0.0, timing["median_ms"] - spi_ms)
+        print(
+            f"{'':<24} "
+            f"spi_med={spi_ms:>6.2f} ms "
+            f"spi_mean={profile['hat_display_mean_ms']:>6.2f} ms "
+            f"prep~{prep_ms:>5.2f} ms "
+            f"spi_pct={spi_ms / timing['median_ms'] * 100.0 if timing['median_ms'] > 0 else 0:.0f}%"
         )
 
 
@@ -133,6 +147,7 @@ def _profile_backend(display: Display) -> Iterator[ProfileStats]:
     wrap("set_window", profile.set_window)
     wrap("_send_data", profile.send_data)
     wrap("draw_image", profile.draw_image)
+    wrap("display", profile.hat_display)
     try:
         yield profile
     finally:
@@ -224,6 +239,10 @@ def _parse_int_list(value: str) -> list[int]:
     return [int(part.strip()) for part in value.split(",") if part.strip()]
 
 
+def _parse_float_list(value: str) -> list[float]:
+    return [float(part.strip()) for part in value.split(",") if part.strip()]
+
+
 def _parse_optional_int_list(value: str) -> list[int | None]:
     speeds: list[int | None] = []
     for part in value.split(","):
@@ -232,6 +251,76 @@ def _parse_optional_int_list(value: str) -> list[int | None]:
             continue
         speeds.append(None if token in {"default", "none"} else int(token))
     return speeds
+
+
+def _read_spi_speed(display: Display) -> int | None:
+    backend = getattr(display, "_backend", None)
+    if backend is None:
+        return None
+    # Try common SPI attribute paths across backends
+    candidates = [
+        getattr(backend, "spi", None),
+        getattr(backend, "_spi", None),
+    ]
+    # displayhatmini: backend.st7789._spi
+    st = getattr(backend, "st7789", None)
+    if st is not None:
+        candidates.append(getattr(st, "_spi", None))
+    for spi in candidates:
+        if spi is not None and hasattr(spi, "max_speed_hz"):
+            return spi.max_speed_hz
+    return None
+
+
+def _set_spi_speed(display: Display, speed_hz: int) -> bool:
+    backend = getattr(display, "_backend", None)
+    if backend is None:
+        return False
+    candidates = [
+        getattr(backend, "spi", None),
+        getattr(backend, "_spi", None),
+    ]
+    st = getattr(backend, "st7789", None)
+    if st is not None:
+        candidates.append(getattr(st, "_spi", None))
+    for spi in candidates:
+        if spi is not None and hasattr(spi, "max_speed_hz"):
+            spi.max_speed_hz = speed_hz
+            return True
+    return False
+
+
+def _run_backlight_sweep(
+    display: Display, levels: list[float], hold_seconds: float, width: int, height: int,
+) -> None:
+    # Test pattern: left half black, right half white, thin gradient strip in the middle
+    pattern = Image.new("RGB", (width, height), "#000000")
+    draw = ImageDraw.Draw(pattern)
+    mid = width // 2
+    strip_w = max(4, width // 10)
+    draw.rectangle((mid + strip_w, 0, width - 1, height - 1), fill="#FFFFFF")
+    for x in range(strip_w):
+        gray = int(255 * x / strip_w)
+        draw.line([(mid + x, 0), (mid + x, height - 1)], fill=(gray, gray, gray))
+    # Add colored patches at the bottom
+    patch_h = height // 5
+    patch_w = width // 4
+    colors = ["#FF0000", "#00FF00", "#0000FF", "#F0D15A"]
+    for i, color in enumerate(colors):
+        x0 = i * patch_w
+        draw.rectangle((x0, height - patch_h, x0 + patch_w - 1, height - 1), fill=color)
+
+    display.update(pattern)
+    original_brightness = display.brightness
+
+    print(f"\nbacklight sweep ({len(levels)} levels, {hold_seconds}s each):")
+    for level in levels:
+        display.set_backlight(level)
+        print(f"  brightness={level:.2f}")
+        time.sleep(hold_seconds)
+
+    display.set_backlight(original_brightness)
+    print(f"  restored brightness={original_brightness:.2f}")
 
 
 def _build_display(config, spi_speed_hz: int | None) -> Display:
@@ -257,7 +346,11 @@ def _run_case(display: Display, label: str, frames: list[Image.Image], iteration
 
 def _run_suite_for_speed(config, spi_speed_hz: int | None, args) -> list[BenchmarkResult]:
     display = _build_display(config, spi_speed_hz)
-    print(f"\nbackend={display.backend_name} size={config.display.width}x{config.display.height} spi_speed_hz={spi_speed_hz}")
+    actual_spi = _read_spi_speed(display)
+    print(
+        f"\nbackend={display.backend_name} size={config.display.width}x{config.display.height}"
+        f" spi_speed_hz={spi_speed_hz} actual_spi_hz={actual_spi}"
+    )
     if display.backend_name == "mock":
         print("warning: mock backend does not measure SPI transfer performance")
         for backend, error in display.backend_init_errors.items():
@@ -306,6 +399,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--spi-speeds", type=_parse_optional_int_list, default=None, help="Comma-separated speed suite, e.g. default,62500000,80000000,100000000")
     parser.add_argument("--split-dirty-regions", action="store_true", help="Try splitting sparse dirty bboxes into multiple rectangles")
     parser.add_argument("--json", dest="json_path", default=None, help="Optional path to write machine-readable benchmark results")
+    parser.add_argument("--width", type=int, default=None, help="Override config width (e.g. 320 for native HAT Mini)")
+    parser.add_argument("--height", type=int, default=None, help="Override config height")
+    parser.add_argument("--backlight-sweep", nargs="?", const="0.2,0.4,0.6,0.8,0.9,1.0", default=None,
+                        help="Sweep backlight levels with test pattern (default levels: 0.2,0.4,0.6,0.8,0.9,1.0)")
+    parser.add_argument("--backlight-hold", type=float, default=3.0, help="Seconds to hold each backlight level (default: 3)")
     parser.add_argument("--quick", action="store_true", help="Run only legacy full-screen and one rectangle case")
     parser.add_argument("--profile", action="store_true", help="Accepted for compatibility; profiling is always collected")
     return parser
@@ -316,6 +414,10 @@ def main(argv: list[str] | None = None) -> int:
     config = load_config(args.config)
     if args.backend is not None:
         config.display.backend = args.backend
+    if args.width is not None:
+        config.display.width = args.width
+    if args.height is not None:
+        config.display.height = args.height
     if args.split_dirty_regions:
         config.display.split_dirty_regions = True
     if args.quick:
@@ -337,6 +439,17 @@ def main(argv: list[str] | None = None) -> int:
             }
             for result in results
         )
+
+    if args.backlight_sweep is not None:
+        levels = _parse_float_list(args.backlight_sweep)
+        sweep_display = _build_display(config, speed_values[0] if speed_values else None)
+        try:
+            _run_backlight_sweep(
+                sweep_display, levels, args.backlight_hold,
+                config.display.width, config.display.height,
+            )
+        finally:
+            sweep_display.shutdown()
 
     if args.json_path:
         output_path = Path(args.json_path).expanduser()
