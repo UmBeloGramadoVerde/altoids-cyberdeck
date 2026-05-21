@@ -7,6 +7,7 @@ INSTALL_DIR="/opt/altoids"
 VENV_DIR="$INSTALL_DIR/.venv"
 RUNTIME_DIR="$INSTALL_DIR/runtime"
 RUNTIME_BIN_DIR="$RUNTIME_DIR/bin"
+RUNTIME_STATE_DIR="$RUNTIME_DIR/state"
 TMUX_RUNTIME_CONF="$RUNTIME_DIR/tmux.conf"
 SERVICE_USER="$(awk -F= '/^User=/{print $2}' "$CONFIG_DIR/altoids.service" | tail -n 1)"
 SERVICE_GROUP="${SERVICE_GROUP:-$SERVICE_USER}"
@@ -47,7 +48,7 @@ sudo apt-get install -y \
   python3-gi-cairo
 
 # --- Create directory structure ---
-sudo install -d -m 755 -o "$SERVICE_USER" -g "$SERVICE_GROUP" "$INSTALL_DIR" "$RUNTIME_DIR" "$INSTALL_DIR/releases"
+sudo install -d -m 755 -o "$SERVICE_USER" -g "$SERVICE_GROUP" "$INSTALL_DIR" "$RUNTIME_DIR" "$RUNTIME_STATE_DIR" "$INSTALL_DIR/releases"
 sudo install -d -m 755 "$RUNTIME_BIN_DIR"
 
 # --- Clone Whisplay vendor driver (for Whisplay hardware only) ---

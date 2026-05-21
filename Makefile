@@ -2,6 +2,7 @@
 
 RUNTIME_CTL ?= /opt/altoids/runtime/bin/altoidsctl
 RUNTIME_BIN_DIR ?= /opt/altoids/runtime/bin
+RUNTIME_STATE_DIR ?= /opt/altoids/runtime/state
 RELEASE_SOURCE ?= $(CURDIR)
 SERVICE_NAME ?= altoids
 SERVICE_USER ?= $(shell awk -F= '/^User=/{print $$2}' config/altoids.service | tail -n 1)
@@ -55,6 +56,7 @@ repair-runtime:
 
 runtime-sync:
 	sudo install -d -m 755 $(RUNTIME_BIN_DIR)
+	sudo install -d -m 755 -o $(SERVICE_USER) -g $(SERVICE_USER) $(RUNTIME_STATE_DIR)
 	sudo install -m 755 $(CURDIR)/config/cdx $(RUNTIME_BIN_DIR)/cdx
 	sudo install -m 755 $(CURDIR)/config/altoids-runtime.py $(RUNTIME_BIN_DIR)/altoids-runtime
 
