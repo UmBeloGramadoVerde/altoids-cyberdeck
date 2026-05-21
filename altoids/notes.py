@@ -37,21 +37,56 @@ class NoteStore:
         return list(self._notes)
 
     def add(self, text: str, *, source: str = "typed") -> QuickNote | None:
-        normalized = " ".join(text.strip().split())
+        normalized = self._normalize(text)
         if not normalized:
             return None
         note = QuickNote(created_at=time.time(), text=normalized, source=source)
         current_notes = self.list_notes()
         notes = [note, *current_notes][: self.max_notes]
+        return self._persist(notes, fallback_notes=current_notes, success_note=note)
+
+    def update(self, original: QuickNote, text: str, *, source: str | None = None) -> QuickNote | None:
+        normalized = self._normalize(text)
+        if not normalized:
+            return None
+        current_notes = self.list_notes()
+        replacement = QuickNote(
+            created_at=original.created_at,
+            text=normalized,
+            source=source if source is not None else original.source,
+        )
+        replaced = False
+        notes: list[QuickNote] = []
+        for note in current_notes:
+            if not replaced and note.created_at == original.created_at:
+                notes.append(replacement)
+                replaced = True
+                continue
+            notes.append(note)
+        if not replaced:
+            return None
+        return self._persist(notes[: self.max_notes], fallback_notes=current_notes, success_note=replacement)
+
+    def _persist(
+        self,
+        notes: list[QuickNote],
+        *,
+        fallback_notes: list[QuickNote],
+        success_note: QuickNote,
+    ) -> QuickNote | None:
         self.last_error = ""
         try:
             self._save(notes)
         except Exception as exc:
             self.last_error = str(exc)
-            self._notes = current_notes
+            self._notes = fallback_notes
             return None
         self._notes = notes
-        return note
+        return success_note
+
+    @staticmethod
+    def _normalize(text: str) -> str:
+        return " ".join(text.strip().split())
 
     def _load(self) -> list[QuickNote]:
         try:

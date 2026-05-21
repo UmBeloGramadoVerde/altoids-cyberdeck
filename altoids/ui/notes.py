@@ -20,6 +20,7 @@ class NotesScreen(Screen):
         self.status_line = "READY FOR DROP"
         self.selected_index = 0
         self.source = "typed"
+        self.editing_created_at: float | None = None
 
     def render(self, draw: ImageDraw.ImageDraw, buffer) -> None:
         app = self.context.app
@@ -130,8 +131,9 @@ class NotesScreen(Screen):
             self._commit()
             return True
         if event.key == "backspace":
+            self._begin_selected_note_editing()
             self.draft = self.draft[:-1]
-            self.status_line = "EDITING"
+            self.status_line = "EDITING NOTE" if self.editing_created_at is not None else "EDITING"
             return True
         if event.key == "escape":
             self.context.app.set_screen("home")
@@ -143,14 +145,16 @@ class NotesScreen(Screen):
             self._select(1)
             return True
         if event.ctrl and event.key == "l":
-            self.draft = ""
-            self.source = "typed"
-            self.status_line = "DRAFT CLEARED"
+            self._clear_draft()
             return True
         if event.text and not event.ctrl:
+            self._begin_selected_note_editing()
             self.draft = f"{self.draft}{event.text}"
-            self.source = "typed"
-            self.status_line = "CAPTURING"
+            if self.editing_created_at is None:
+                self.source = "typed"
+                self.status_line = "CAPTURING"
+            else:
+                self.status_line = "EDITING NOTE"
             return True
         return False
 
@@ -191,10 +195,10 @@ class NotesScreen(Screen):
         if note is None:
             self.status_line = self._save_error_status() if self.context.app.notes.last_error else "NOTHING TO SAVE"
             return
-        self.draft = ""
-        self.source = "typed"
+        updated_existing = self.editing_created_at is not None
+        self._clear_draft(status_line=None)
         self.selected_index = 0
-        self.status_line = "SAVED DROP"
+        self.status_line = "UPDATED DROP" if updated_existing else "SAVED DROP"
 
     def _save_error_status(self) -> str:
         error = self.context.app.notes.last_error
@@ -204,6 +208,12 @@ class NotesScreen(Screen):
 
     def _save_note(self, text: str, *, source: str) -> Any:
         try:
+            if self.editing_created_at is not None:
+                original = self._selected_note_for_edit()
+                if original is None:
+                    self.editing_created_at = None
+                else:
+                    return self.context.app.notes.update(original, text, source=source)
             return self.context.app.notes.add(text, source=source)
         except Exception as exc:
             self.context.app.notes.last_error = str(exc)
@@ -221,6 +231,37 @@ class NotesScreen(Screen):
         self.selected_index = min(max(0, self.selected_index + delta), min(3, len(notes) - 1))
         note = notes[self.selected_index]
         self.status_line = f"{note.date_label} {note.created_label}"
+
+    def _begin_selected_note_editing(self) -> None:
+        if self.draft:
+            return
+        note = self._selected_note_for_edit()
+        if note is None:
+            return
+        self.draft = note.text
+        self.source = note.source
+        self.editing_created_at = note.created_at
+
+    def _selected_note_for_edit(self) -> QuickNote | None:
+        notes = self._notes()
+        if not notes or self.selected_index >= min(4, len(notes)):
+            return None
+        note = notes[self.selected_index]
+        if self.editing_created_at is None:
+            return note
+        if note.created_at == self.editing_created_at:
+            return note
+        for candidate in notes:
+            if candidate.created_at == self.editing_created_at:
+                return candidate
+        return None
+
+    def _clear_draft(self, *, status_line: str | None = "DRAFT CLEARED") -> None:
+        self.draft = ""
+        self.source = "typed"
+        self.editing_created_at = None
+        if status_line is not None:
+            self.status_line = status_line
 
     @staticmethod
     def _trim(text: str, limit: int) -> str:

@@ -59,6 +59,22 @@ class NotesTest(unittest.TestCase):
         self.assertIsNotNone(note)
         self.assertEqual([saved.text for saved in reloaded], ["new note"])
 
+    def test_store_update_replaces_existing_note_in_place(self) -> None:
+        with TemporaryDirectory() as tmp:
+            store = NoteStore(Path(tmp))
+            first = store.add("first")
+            second = store.add("second", source="voice")
+
+            updated = store.update(second, "second updated")
+            reloaded = NoteStore(Path(tmp)).list_notes()
+
+        self.assertIsNotNone(first)
+        self.assertIsNotNone(second)
+        self.assertIsNotNone(updated)
+        self.assertEqual([note.text for note in reloaded], ["second updated", "first"])
+        self.assertEqual(reloaded[0].created_at, second.created_at)
+        self.assertEqual(reloaded[0].source, "voice")
+
     def test_typed_input_saves_draft(self) -> None:
         with TemporaryDirectory() as tmp:
             app = self._fake_app(Path(tmp))
@@ -96,6 +112,23 @@ class NotesTest(unittest.TestCase):
 
         self.assertEqual(screen.draft, "idea: make it tactile")
         self.assertEqual(app.notes.list_notes(), [])
+
+    def test_typing_with_selected_note_edits_original_instead_of_creating_new_one(self) -> None:
+        with TemporaryDirectory() as tmp:
+            app = self._fake_app(Path(tmp))
+            original = app.notes.add("ship it")
+            screen = NotesScreen(SimpleNamespace(app=app))
+
+            screen.on_keyboard_event(KeyboardEvent(key="backspace", raw_key="KEY_BACKSPACE"))
+            for char in " now":
+                screen.on_keyboard_event(KeyboardEvent(key=char, raw_key="", text=char))
+            screen.on_keyboard_event(KeyboardEvent(key="enter", raw_key="KEY_ENTER"))
+            notes = app.notes.list_notes()
+
+        self.assertIsNotNone(original)
+        self.assertEqual([note.text for note in notes], ["ship it now"])
+        self.assertEqual(notes[0].created_at, original.created_at)
+        self.assertEqual(screen.status_line, "UPDATED DROP")
 
     def test_save_failure_does_not_clear_typed_draft(self) -> None:
         app = SimpleNamespace(notes=FailingNoteStore(Path("/tmp")))
