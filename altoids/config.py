@@ -142,6 +142,16 @@ class AltoidsConfig:
             return path
         return self.root_dir / path
 
+    @property
+    def state_dir(self) -> Path:
+        explicit = os.environ.get("ALTOIDS_RUNTIME_STATE")
+        if explicit:
+            return Path(explicit).expanduser()
+        runtime_root = os.environ.get("ALTOIDS_RUNTIME_ROOT")
+        if runtime_root:
+            return Path(runtime_root).expanduser() / "runtime" / "state"
+        return self.root_dir / ".runtime"
+
 
 def _merge_dataclass(instance: Any, values: dict[str, Any]) -> Any:
     for key, value in values.items():

@@ -25,8 +25,8 @@ class QuickNote:
 
 
 class NoteStore:
-    def __init__(self, root_dir: Path, max_notes: int = 200) -> None:
-        self.path = root_dir / ".runtime" / "notes" / "quick-notes.json"
+    def __init__(self, state_dir: Path, max_notes: int = 200) -> None:
+        self.path = state_dir / "notes" / "quick-notes.json"
         self.max_notes = max(1, max_notes)
         self._notes: list[QuickNote] | None = None
         self.last_error = ""

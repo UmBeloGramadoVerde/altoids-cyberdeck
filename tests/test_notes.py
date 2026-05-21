@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import os
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
 
 from altoids.input_keyboard import KeyboardEvent
+from altoids.config import AltoidsConfig
 from altoids.notes import NoteStore
 from altoids.ui.notes import NotesScreen
 
@@ -89,6 +91,33 @@ class NotesTest(unittest.TestCase):
         self.assertEqual(len(notes), 1)
         self.assertEqual(notes[0].text, "ship it")
         self.assertEqual(screen.draft, "")
+
+    def test_config_state_dir_defaults_to_runtime_folder_in_repo(self) -> None:
+        with TemporaryDirectory() as tmp:
+            config = AltoidsConfig(root_dir=Path(tmp))
+
+        self.assertEqual(config.state_dir, Path(tmp) / ".runtime")
+
+    def test_config_state_dir_prefers_runtime_state_env(self) -> None:
+        with TemporaryDirectory() as tmp:
+            original_state = os.environ.get("ALTOIDS_RUNTIME_STATE")
+            original_root = os.environ.get("ALTOIDS_RUNTIME_ROOT")
+            os.environ["ALTOIDS_RUNTIME_STATE"] = f"{tmp}/persistent-state"
+            os.environ.pop("ALTOIDS_RUNTIME_ROOT", None)
+            try:
+                config = AltoidsConfig(root_dir=Path("/repo"))
+                state_dir = config.state_dir
+            finally:
+                if original_state is None:
+                    os.environ.pop("ALTOIDS_RUNTIME_STATE", None)
+                else:
+                    os.environ["ALTOIDS_RUNTIME_STATE"] = original_state
+                if original_root is None:
+                    os.environ.pop("ALTOIDS_RUNTIME_ROOT", None)
+                else:
+                    os.environ["ALTOIDS_RUNTIME_ROOT"] = original_root
+
+        self.assertEqual(state_dir, Path(tmp) / "persistent-state")
 
     def test_voice_text_saves_immediately_when_draft_is_empty(self) -> None:
         with TemporaryDirectory() as tmp:

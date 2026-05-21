@@ -15,7 +15,7 @@ from typing import Callable
 
 ROOT_DIR = Path(os.environ.get("ALTOIDS_RUNTIME_ROOT", "/opt/altoids"))
 RUN_DIR = Path(os.environ.get("ALTOIDS_RUNTIME_RUN", "/run/altoids"))
-STATE_DIR = Path(os.environ.get("ALTOIDS_RUNTIME_STATE", str(RUN_DIR)))
+STATE_DIR = Path(os.environ.get("ALTOIDS_RUNTIME_STATE", str(ROOT_DIR / "runtime" / "state")))
 RELEASES_DIR = ROOT_DIR / "releases"
 CURRENT_LINK = ROOT_DIR / "current"
 PREVIOUS_LINK = ROOT_DIR / "previous"
@@ -156,8 +156,7 @@ def python_for_release(release_dir: Path) -> Path:
 
 
 def run_self_test(release_dir: Path) -> tuple[bool, str]:
-    env = os.environ.copy()
-    env["ALTOIDS_RELEASE_ID"] = release_dir.name
+    env = runtime_environment(release_dir)
     command = [str(python_for_release(release_dir)), "-m", "altoids", "--self-test"]
     result = subprocess.run(
         command,
@@ -172,6 +171,15 @@ def run_self_test(release_dir: Path) -> tuple[bool, str]:
     if result.returncode == 0:
         return True, output
     return False, output or f"self-test exited with status {result.returncode}"
+
+
+def runtime_environment(release_dir: Path) -> dict[str, str]:
+    env = os.environ.copy()
+    env["ALTOIDS_RELEASE_ID"] = release_dir.name
+    env["ALTOIDS_RUNTIME_ROOT"] = str(ROOT_DIR)
+    env["ALTOIDS_RUNTIME_RUN"] = str(RUN_DIR)
+    env["ALTOIDS_RUNTIME_STATE"] = str(STATE_DIR)
+    return env
 
 
 def pid_is_running(pid: int) -> bool:
@@ -291,8 +299,7 @@ class Supervisor:
         python_bin = python_for_release(release_dir)
         if HEALTH_FILE.exists():
             HEALTH_FILE.unlink()
-        env = os.environ.copy()
-        env["ALTOIDS_RELEASE_ID"] = release_dir.name
+        env = runtime_environment(release_dir)
         command = [str(python_bin), "-m", "altoids", "--health-file", str(HEALTH_FILE)]
         self.child = subprocess.Popen(command, cwd=release_dir, env=env, text=True)
         self.child_release = release_dir

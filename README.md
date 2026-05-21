@@ -151,7 +151,7 @@ Note: the plan called for `pyte`-based ANSI rendering, but the current code stri
 
 Implemented in [altoids/ui/notes.py](/home/kayna/altoids-cyberdeck/altoids/ui/notes.py:1) with persistence in [altoids/notes.py](/home/kayna/altoids-cyberdeck/altoids/notes.py:1).
 
-The Notes screen is built for quick capture: type directly into the draft area and press `Enter` or `X` to save. Recent notes are stored newest-first under `.runtime/notes/quick-notes.json`.
+The Notes screen is built for quick capture: type directly into the draft area and press `Enter` or `X` to save. Recent notes are stored newest-first under `ALTOIDS_RUNTIME_STATE/notes/quick-notes.json` when that runtime state path is configured, or under `.runtime/notes/quick-notes.json` for local repo runs.
 
 Voice capture uses the global `CMD+Space` dictation trigger. On the Notes screen, a voice result saves immediately when the draft is empty; if a typed draft already exists, the transcript is appended to that draft.
 

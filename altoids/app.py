@@ -152,7 +152,7 @@ class AltoidsApp:
             passwords=dict(config.wifi.passwords),
             scan_cache_seconds=config.wifi.scan_cache_seconds,
         )
-        self.notes = NoteStore(config.root_dir)
+        self.notes = NoteStore(config.state_dir)
         self.button_input = ButtonInput(self.handle_button_event, display=self.display)
         self.keyboard_input = KeyboardInput()
         self.bluetooth_monitor = BluetoothMonitor()
