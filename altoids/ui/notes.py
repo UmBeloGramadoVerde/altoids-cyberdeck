@@ -151,7 +151,6 @@ class NotesScreen(Screen):
             self._clear_draft()
             return True
         if event.text and not event.ctrl:
-            self._begin_selected_note_editing()
             self.draft = f"{self.draft}{event.text}"
             if self.editing_created_at is None:
                 self.source = "typed"

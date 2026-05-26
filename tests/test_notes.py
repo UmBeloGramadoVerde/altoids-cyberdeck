@@ -159,6 +159,22 @@ class NotesTest(unittest.TestCase):
         self.assertEqual(notes[0].created_at, original.created_at)
         self.assertEqual(screen.status_line, "UPDATED DROP")
 
+    def test_typing_on_empty_draft_creates_new_note_even_when_previous_note_is_selected(self) -> None:
+        with TemporaryDirectory() as tmp:
+            app = self._fake_app(Path(tmp))
+            original = app.notes.add("ship it")
+            screen = NotesScreen(SimpleNamespace(app=app))
+
+            for char in "fresh":
+                screen.on_keyboard_event(KeyboardEvent(key=char, raw_key="", text=char))
+            screen.on_keyboard_event(KeyboardEvent(key="enter", raw_key="KEY_ENTER"))
+            notes = app.notes.list_notes()
+
+        self.assertIsNotNone(original)
+        self.assertEqual([note.text for note in notes], ["fresh", "ship it"])
+        self.assertEqual(notes[1].created_at, original.created_at)
+        self.assertEqual(screen.status_line, "SAVED DROP")
+
     def test_save_failure_does_not_clear_typed_draft(self) -> None:
         app = SimpleNamespace(notes=FailingNoteStore(Path("/tmp")))
         screen = NotesScreen(SimpleNamespace(app=app))
