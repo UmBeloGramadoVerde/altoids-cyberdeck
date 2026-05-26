@@ -1,4 +1,4 @@
-.PHONY: setup self-test display-benchmark input-latency-benchmark terminal-latency-benchmark commit-push stage reload rollback status update repair-runtime runtime-sync tmux-apply tmux-install-user tmux-install-system tmux-sync
+.PHONY: setup pair-keyboard self-test display-benchmark input-latency-benchmark terminal-latency-benchmark commit-push stage reload rollback status update repair-runtime runtime-sync tmux-apply tmux-install-user tmux-install-system tmux-sync
 
 RUNTIME_CTL ?= /opt/altoids/runtime/bin/altoidsctl
 RUNTIME_BIN_DIR ?= /opt/altoids/runtime/bin
@@ -11,6 +11,9 @@ TMUX_RUNTIME_CONF ?= /opt/altoids/runtime/tmux.conf
 
 setup:
 	./setup.sh
+
+pair-keyboard:
+	./scripts/pair_keyboard.sh
 
 self-test:
 	python3 -m altoids --self-test

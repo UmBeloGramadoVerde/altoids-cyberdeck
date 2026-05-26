@@ -321,18 +321,26 @@ The recommended keyboard is the EXknight M4, a compact Bluetooth 5.0 QWERTY keyb
 
 1. Power on the keyboard (slide switch down)
 2. Hold `Fn + Q` for 2 seconds to enter pairing mode (backlight blinks)
-3. Pair from the Pi:
+3. Set the keyboard to Android mode with `Fn + W`
+4. Pair from the Pi:
+
+```bash
+make pair-keyboard
+```
+
+The pairing helper scans for `M4`, then runs `pair`, `trust`, and `connect` through `bluetoothctl`.
+
+If you prefer the raw manual flow:
 
 ```bash
 bluetoothctl scan on
 # Wait for "M4" to appear, note its MAC address
 bluetoothctl pair <MAC>
 bluetoothctl trust <MAC>
+bluetoothctl connect <MAC>
 ```
 
-4. The keyboard auto-reconnects on wake after being trusted
-
-Set the keyboard to Android mode (`Fn + W`) for best Linux compatibility. See [docs/keyboard-exknight-m4.md](docs/keyboard-exknight-m4.md) for the full key layout and integration reference.
+The keyboard auto-reconnects on wake after being trusted. See [docs/keyboard-exknight-m4.md](docs/keyboard-exknight-m4.md) for the full key layout and integration reference.
 
 The `Windows`/`Cmd` key on the M4 acts as the cyberdeck command-mode trigger. Tap it, then press a command key within 1.5 seconds (e.g. `Cmd` then `Q` for home, `Cmd` then `W` for terminal). See the help overlay (`F1`) for the full command map.
 

@@ -11,10 +11,65 @@ RUNTIME_STATE_DIR="$RUNTIME_DIR/state"
 TMUX_RUNTIME_CONF="$RUNTIME_DIR/tmux.conf"
 SERVICE_USER="$(awk -F= '/^User=/{print $2}' "$CONFIG_DIR/altoids.service" | tail -n 1)"
 SERVICE_GROUP="${SERVICE_GROUP:-$SERVICE_USER}"
+DISPLAY_TARGET="${ALTOIDS_DISPLAY:-}"
+PAIR_KEYBOARD_CHOICE="${ALTOIDS_PAIR_KEYBOARD:-}"
 
 if [ -z "$SERVICE_USER" ]; then
   echo "Could not determine service user from $CONFIG_DIR/altoids.service" >&2
   exit 1
+fi
+
+if [ -z "$DISPLAY_TARGET" ]; then
+  if [ -t 0 ] && [ -t 1 ]; then
+    echo "Select display hardware:"
+    echo "  1) Pimoroni Display HAT Mini"
+    echo "  2) PiSugar Whisplay"
+    read -r -p "Choice [1/2] (default 1): " display_choice
+    case "$display_choice" in
+      "" | 1)
+        DISPLAY_TARGET="displayhatmini"
+        ;;
+      2)
+        DISPLAY_TARGET="whisplay"
+        ;;
+      *)
+        echo "Invalid display choice: $display_choice" >&2
+        exit 1
+        ;;
+    esac
+  else
+    DISPLAY_TARGET="displayhatmini"
+    echo "No TTY detected; defaulting display hardware to $DISPLAY_TARGET"
+    echo "Set ALTOIDS_DISPLAY=whisplay to override."
+  fi
+fi
+
+case "$DISPLAY_TARGET" in
+  displayhatmini | whisplay)
+    ;;
+  *)
+    echo "Unsupported ALTOIDS_DISPLAY value: $DISPLAY_TARGET" >&2
+    echo "Expected one of: displayhatmini, whisplay" >&2
+    exit 1
+    ;;
+esac
+
+echo "Display target: $DISPLAY_TARGET"
+
+if [ -z "$PAIR_KEYBOARD_CHOICE" ]; then
+  if [ -t 0 ] && [ -t 1 ]; then
+    read -r -p "Pair the EXknight M4 keyboard during setup? [y/N]: " pair_keyboard_reply
+    case "$pair_keyboard_reply" in
+      y | Y | yes | YES)
+        PAIR_KEYBOARD_CHOICE="yes"
+        ;;
+      *)
+        PAIR_KEYBOARD_CHOICE="no"
+        ;;
+    esac
+  else
+    PAIR_KEYBOARD_CHOICE="no"
+  fi
 fi
 
 # --- Enable SPI, I2C, and Bluetooth ---
@@ -51,36 +106,33 @@ sudo apt-get install -y \
 sudo install -d -m 755 -o "$SERVICE_USER" -g "$SERVICE_GROUP" "$INSTALL_DIR" "$RUNTIME_DIR" "$RUNTIME_STATE_DIR" "$INSTALL_DIR/releases"
 sudo install -d -m 755 "$RUNTIME_BIN_DIR"
 
-# --- Clone Whisplay vendor driver (for Whisplay hardware only) ---
-WHISPLAY_DIR="$INSTALL_DIR/vendor/Whisplay"
-if [ ! -d "$WHISPLAY_DIR" ]; then
-  sudo mkdir -p "$INSTALL_DIR/vendor"
-  sudo git clone --depth 1 https://github.com/PiSugar/Whisplay.git "$WHISPLAY_DIR"
-fi
+# --- Clone Whisplay vendor driver and install WM8960 audio stack (Whisplay only) ---
+if [ "$DISPLAY_TARGET" = "whisplay" ]; then
+  WHISPLAY_DIR="$INSTALL_DIR/vendor/Whisplay"
+  if [ ! -d "$WHISPLAY_DIR" ]; then
+    sudo mkdir -p "$INSTALL_DIR/vendor"
+    sudo git clone --depth 1 https://github.com/PiSugar/Whisplay.git "$WHISPLAY_DIR"
+  fi
 
-# --- Install WM8960 audio driver if present (Whisplay hardware only) ---
-# New repo layout: install_driver.sh at root
-# Old repo layout: Driver/install_wm8960_drive.sh
-WM8960_INSTALLER=""
-if [ -f "$WHISPLAY_DIR/install_driver.sh" ]; then
-  WM8960_INSTALLER="$WHISPLAY_DIR/install_driver.sh"
-elif [ -f "$WHISPLAY_DIR/Driver/install_wm8960_drive.sh" ]; then
-  WM8960_INSTALLER="$WHISPLAY_DIR/Driver/install_wm8960_drive.sh"
+  # New repo layout: install_driver.sh at root
+  # Old repo layout: Driver/install_wm8960_drive.sh
+  WM8960_INSTALLER=""
+  if [ -f "$WHISPLAY_DIR/install_driver.sh" ]; then
+    WM8960_INSTALLER="$WHISPLAY_DIR/install_driver.sh"
+  elif [ -f "$WHISPLAY_DIR/Driver/install_wm8960_drive.sh" ]; then
+    WM8960_INSTALLER="$WHISPLAY_DIR/Driver/install_wm8960_drive.sh"
+  fi
+  if [ -n "$WM8960_INSTALLER" ]; then
+    echo "Installing Whisplay WM8960 audio driver"
+    (
+      cd "$(dirname "$WM8960_INSTALLER")"
+      printf 'y\n' | sudo bash "$(basename "$WM8960_INSTALLER")"
+    )
+  fi
 fi
-if [ -n "$WM8960_INSTALLER" ]; then
-  echo "Installing Whisplay WM8960 audio driver"
-  (
-    cd "$(dirname "$WM8960_INSTALLER")"
-    printf 'y\n' | sudo bash "$(basename "$WM8960_INSTALLER")"
-  )
-fi
-
-# --- Install Python packages system-wide (dedicated cyberdeck, safe to break isolation) ---
-echo "Installing Python packages system-wide"
-sudo python3 -m pip install --break-system-packages -r "$ROOT_DIR/requirements.txt"
 
 # --- Create Python virtual environment and install packages ---
-sudo python3 -m venv --system-site-packages "$VENV_DIR"
+sudo python3 -m venv "$VENV_DIR"
 sudo "$VENV_DIR/bin/pip" install --upgrade pip
 sudo "$VENV_DIR/bin/pip" install -r "$ROOT_DIR/requirements.txt"
 
@@ -89,6 +141,38 @@ if [ ! -f "$CONFIG_DIR/altoids.toml" ]; then
   cp "$CONFIG_DIR/altoids.example.toml" "$CONFIG_DIR/altoids.toml"
   echo "Created config/altoids.toml from example template"
 fi
+
+python3 - "$CONFIG_DIR/altoids.toml" "$DISPLAY_TARGET" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+config_path = Path(sys.argv[1])
+display_target = sys.argv[2]
+text = config_path.read_text()
+
+profiles = {
+    "displayhatmini": {
+        "width": "320",
+        "height": "240",
+        "rotation": "0",
+        "transfer_quantization": '"rgb565"',
+    },
+    "whisplay": {
+        "width": "280",
+        "height": "240",
+        "rotation": "270",
+        "transfer_quantization": '"rgb332"',
+    },
+}
+
+for key, value in profiles[display_target].items():
+    text, count = re.subn(rf"(?m)^({re.escape(key)}\s*=\s*).*$", rf"\g<1>{value}", text, count=1)
+    if count != 1:
+        raise SystemExit(f"Could not update {key} in {config_path}")
+
+config_path.write_text(text)
+PY
 
 # --- Install runtime files ---
 sudo mkdir -p /var/lib/altoids/tmux
@@ -113,6 +197,12 @@ sudo cp "$CONFIG_DIR/altoids.service" /etc/systemd/system/altoids.service
 sudo systemctl daemon-reload
 sudo systemctl enable altoids.service
 
+if [ "$PAIR_KEYBOARD_CHOICE" = "yes" ]; then
+  echo ""
+  echo "Starting keyboard pairing helper"
+  bash "$ROOT_DIR/scripts/pair_keyboard.sh"
+fi
+
 echo ""
 echo "Setup complete."
 echo ""
@@ -121,9 +211,7 @@ echo "  1. Reboot the Pi (required for SPI/I2C and audio driver changes):"
 echo "       sudo reboot"
 echo "  2. After reboot, the altoids service starts automatically"
 echo "  3. Pair the EXknight M4 keyboard (see README for full steps):"
-echo "       bluetoothctl scan on        # start scanning"
-echo "       bluetoothctl pair <MAC>     # pair with M4"
-echo "       bluetoothctl trust <MAC>    # auto-reconnect on wake"
+echo "       make pair-keyboard"
 echo "  4. Use 'make status' to check the service"
 echo ""
-echo "Available make targets: self-test, stage, reload, update, status, tmux-sync"
+echo "Available make targets: pair-keyboard, self-test, stage, reload, update, status, tmux-sync"
