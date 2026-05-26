@@ -5,7 +5,6 @@ from PIL import ImageDraw
 from ..buttons import LEFT_BOTTOM, LEFT_TOP, RIGHT_BOTTOM, RIGHT_TOP
 from ..colors import ACCENT, AUX, BG, COOL, DIM, FG, INFO, SURFACE_ALT, SURFACE_GRID, SURFACE_PANEL, WARN
 from ..input_keyboard import KeyboardEvent
-from ..wifi import WifiNetwork
 from .base import Screen, ScreenContext
 from .widgets import (
     draw_corner_ticks,
@@ -28,35 +27,41 @@ class SystemScreen(Screen):
         "c": "core",
         "o": "load",
         "l": "link",
-        "w": "wireless",
+        "w": "wifi",
         "r": "rig",
         "u": "cues",
     }
 
     def __init__(self, context: ScreenContext) -> None:
         super().__init__(context)
-        self.selected_index = 0
-        self.networks: list[WifiNetwork] = []
-        self.status_line = "W wireless  C core  L link"
-        self.password_entry = ""
-        self.password_target: WifiNetwork | None = None
+        self.status_line = "C core  W wifi  R rig"
         self._refresh_elapsed = 0.0
         self.detail_active: str | None = None
         self.detail_scroll = 0
-
-    @property
-    def entering_password(self) -> bool:
-        return self.password_target is not None
+        # WiFi detail state
+        self.wifi_state = "roster"
+        self.wifi_selection = 0
+        self.wifi_networks: list = []
+        self.wifi_password = ""
+        self.wifi_password_visible = False
 
     def update(self, dt: float) -> bool:
+        dirty = False
+        if self.detail_active == "wifi" and self.wifi_state == "connecting":
+            result = self.context.app.wifi.poll_connect()
+            if result.state in {"success", "failed"}:
+                self.wifi_state = "result"
+                self._wifi_result_message = result.message
+                self._wifi_result_success = result.state == "success"
+                cue = "wifi_success" if self._wifi_result_success else "wifi_error"
+                self.context.app.accents.trigger(cue)
+                dirty = True
+            else:
+                dirty = True  # animate dots
         self._refresh_elapsed += dt
         if self._refresh_elapsed < 1.0:
-            return False
+            return dirty
         self._refresh_elapsed = 0.0
-        selected_network = self._selected_network()
-        selected_ssid = selected_network.ssid if selected_network is not None else None
-        self.networks = self.context.app.wifi.scan(force=False, allow_refresh=False)
-        self._sync_wifi_selection(preferred_ssid=selected_ssid, prefer_active=False)
         return True
 
     # ── Rendering ──────────────────────────────────────────────
@@ -70,7 +75,6 @@ class SystemScreen(Screen):
     def _render_overview(self, buffer) -> None:
         app = self.context.app
         stats = app.system_snapshot()
-        wifi_status = app.wifi.status(allow_refresh=not app.input_render_pending)
         accent_status = app.accents.status
         width = app.config.display.width
         height = app.config.display.height
@@ -80,17 +84,13 @@ class SystemScreen(Screen):
         buffer.paste(self.cached_background(signature, buffer.size, self._paint_overview_background))
         draw = ImageDraw.Draw(buffer)
 
-        # Derive wifi connected state with IP fallback
         ip_addr = str(stats.get("ip_address", "offline"))
-        wifi_connected = wifi_status.connected or (ip_addr not in ("offline", ""))
-        wifi_sig = wifi_status.signal if wifi_status.connected else (75 if wifi_connected else 0)
-        wifi_ssid = wifi_status.ssid or (ip_addr if wifi_connected and not wifi_status.ssid else wifi_status.state)
 
         temp_color = WARN if stats["temperature_hot"] else ACCENT
         core_bounds = layout["core_bounds"]
         load_bounds = layout["load_bounds"]
         link_bounds = layout["link_bounds"]
-        wireless_bounds = layout["wireless_bounds"]
+        wifi_bounds = layout["wifi_bounds"]
         rig_bounds = layout["rig_bounds"]
         cues_bounds = layout["cues_bounds"]
 
@@ -107,22 +107,29 @@ class SystemScreen(Screen):
         self._draw_meter_row(draw, load_bounds[0] + 16, 74, "TMP", stats["temperature_pct"], stats["temperature_label"], color=temp_color)
 
         # ── LINK panel content (background, left middle) ──
-        draw_status_dot(draw, link_bounds[0] + 12, 108, wifi_connected, INFO)
-        draw_label(draw, link_bounds[0] + 24, 106, "WIFI", app.font, DIM)
-        draw_label(draw, link_bounds[0] + 54, 106, "ON" if wifi_connected else "OFF", app.font, INFO if wifi_connected else DIM)
-        draw_status_dot(draw, link_bounds[0] + 12, 124, app.bluetooth_status.connected, COOL)
-        draw_label(draw, link_bounds[0] + 24, 122, "BT", app.font, DIM)
-        draw_label(draw, link_bounds[0] + 46, 122, "LIVE" if app.bluetooth_status.connected else "IDLE", app.font, COOL if app.bluetooth_status.connected else DIM)
-        draw_label(draw, link_bounds[0] + 12, 138, self._trim(f"DSK {stats['disk_label']}", core_limit), app.font, DIM)
+        link_limit = max(10, (link_bounds[2] - link_bounds[0] - 12) // 7)
+        draw_status_dot(draw, link_bounds[0] + 12, 108, app.bluetooth_status.connected, COOL)
+        draw_label(draw, link_bounds[0] + 24, 106, "BT", app.font, DIM)
+        draw_label(draw, link_bounds[0] + 46, 106, "LIVE" if app.bluetooth_status.connected else "IDLE", app.font, COOL if app.bluetooth_status.connected else DIM)
+        draw_label(draw, link_bounds[0] + 12, 124, self._trim(f"IP {ip_addr}", link_limit), app.font, FG)
+        draw_label(draw, link_bounds[0] + 12, 138, self._trim(f"DSK {stats['disk_label']}", link_limit), app.font, DIM)
 
-        # ── WIRELESS panel content (foreground, right middle) ──
-        wireless_limit = max(12, (wireless_bounds[2] - wireless_bounds[0] - 20) // 7)
-        wireless_bar_width = max(56, wireless_bounds[2] - wireless_bounds[0] - 84)
-        wireless_left = wireless_bounds[0] + 16
-        draw_label(draw, wireless_left, 106, self._trim(f"NET {wifi_ssid.upper()}", wireless_limit), app.font, FG)
-        draw_segmented_bar(draw, wireless_left, 124, wireless_bar_width, wifi_sig / 100.0, segments=7, color=INFO if wifi_connected else DIM)
-        draw_label(draw, wireless_left + wireless_bar_width + 8, 122, f"{wifi_sig:>3}%", app.font, INFO if wifi_connected else DIM)
-        draw_label(draw, wireless_left, 138, self._trim(f"IP {ip_addr}", wireless_limit), app.font, FG)
+        # ── WIFI panel content (foreground, right middle) ──
+        wifi_status = app.wifi.status(allow_refresh=False)
+        wifi_left = wifi_bounds[0] + 16
+        wifi_limit = max(10, (wifi_bounds[2] - wifi_left - 8) // 7)
+        draw_status_dot(draw, wifi_left, 108, wifi_status.connected, INFO)
+        draw_label(draw, wifi_left + 14, 106, "WIFI", app.font, DIM)
+        if wifi_status.connected:
+            draw_label(draw, wifi_left, 124, self._trim(wifi_status.ssid, wifi_limit), app.font, FG)
+            bar_segs = 5
+            draw_segmented_bar(draw, wifi_left, 140, 50, wifi_status.signal / 100.0, segments=bar_segs, color=INFO)
+            draw_label(draw, wifi_left + 56, 138, f"{wifi_status.signal}%", app.font, DIM)
+        else:
+            draw_label(draw, wifi_left, 124, "OFFLINE", app.font, DIM)
+            net_count = len(self.wifi_networks)
+            if net_count:
+                draw_label(draw, wifi_left, 138, f"{net_count} FOUND", app.font, DIM)
 
         # ── RIG panel content (background, left bottom) ──
         rig_online = accent_status.whisplay_available
@@ -160,7 +167,7 @@ class SystemScreen(Screen):
         core_bounds = layout["core_bounds"]
         load_bounds = layout["load_bounds"]
         link_bounds = layout["link_bounds"]
-        wireless_bounds = layout["wireless_bounds"]
+        wifi_bounds = layout["wifi_bounds"]
         rig_bounds = layout["rig_bounds"]
         cues_bounds = layout["cues_bounds"]
 
@@ -174,7 +181,7 @@ class SystemScreen(Screen):
 
         # Foreground panels (drawn last — actionable data, full opacity)
         draw_panel(draw, load_bounds, title="LOAD", title_font=app.font, outline=WARN, title_color=WARN)
-        draw_panel(draw, wireless_bounds, title="WIRELESS", title_font=app.font, outline=COOL, title_color=COOL)
+        draw_panel(draw, wifi_bounds, title="WIFI", title_font=app.font, outline=INFO, title_color=INFO)
         draw_panel(draw, cues_bounds, title="CUES", title_font=app.font, outline=ACCENT, title_color=ACCENT)
 
     @staticmethod
@@ -185,8 +192,9 @@ class SystemScreen(Screen):
         col_split = content_left + total * 35 // 100
         core_bounds = (content_left, 28, col_split, 90)
         load_bounds = (col_split - 4, 28, content_right, 90)
-        link_bounds = (content_left, 96, col_split, 156)
-        wireless_bounds = (col_split - 4, 96, content_right, 156)
+        mid_split = content_left + total * 35 // 100
+        link_bounds = (content_left, 96, mid_split, 156)
+        wifi_bounds = (mid_split - 4, 96, content_right, 156)
         rig_split = content_left + total * 45 // 100
         rig_bounds = (content_left, 160, rig_split, 198)
         cues_bounds = (rig_split + 2, 160, content_right, 198)
@@ -194,7 +202,7 @@ class SystemScreen(Screen):
             "core_bounds": core_bounds,
             "load_bounds": load_bounds,
             "link_bounds": link_bounds,
-            "wireless_bounds": wireless_bounds,
+            "wifi_bounds": wifi_bounds,
             "rig_bounds": rig_bounds,
             "cues_bounds": cues_bounds,
             "status_left": content_left + 4,
@@ -217,8 +225,8 @@ class SystemScreen(Screen):
             self._render_load_detail(draw, width, height)
         elif panel == "link":
             self._render_link_detail(draw, width, height)
-        elif panel == "wireless":
-            self._render_wireless_detail(draw, width, height)
+        elif panel == "wifi":
+            self._render_wifi_detail(draw, width, height)
         elif panel == "rig":
             self._render_rig_detail(draw, width, height)
         elif panel == "cues":
@@ -267,85 +275,21 @@ class SystemScreen(Screen):
     def _render_link_detail(self, draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
         app = self.context.app
         stats = app.system_snapshot()
-        wifi_status = app.wifi.status(allow_refresh=not app.input_render_pending)
         ip_addr = str(stats.get("ip_address", "offline"))
-        wifi_connected = wifi_status.connected or (ip_addr not in ("offline", ""))
         bounds = draw_detail_frame(draw, width, height, title="LINK", font=app.font, color=INFO, side_bar_width=app.side_bar_width)
         left, top, right, bottom = bounds
 
         draw_label(draw, left, top, "CONNECTIVITY", app.font, INFO)
         y = top + 22
-        draw_status_dot(draw, left, y + 1, wifi_connected, INFO)
-        draw_label(draw, left + 14, y, "WIFI", app.font, DIM)
-        draw_label(draw, left + 52, y, "ON" if wifi_connected else "OFF", app.font, INFO if wifi_connected else DIM)
-        y += 18
         draw_status_dot(draw, left, y + 1, app.bluetooth_status.connected, COOL)
         draw_label(draw, left + 14, y, "BT", app.font, DIM)
         draw_label(draw, left + 42, y, "LIVE" if app.bluetooth_status.connected else "IDLE", app.font, COOL if app.bluetooth_status.connected else DIM)
         y += 22
-        draw_label(draw, left, y, f"SSID    {(wifi_status.ssid or 'NONE').upper()}", app.font, FG)
-        y += 16
-        draw_label(draw, left, y, f"SIGNAL  {wifi_status.signal}%", app.font, FG)
-        y += 16
         draw_label(draw, left, y, f"IP      {ip_addr}", app.font, FG)
         y += 16
         draw_label(draw, left, y, f"DISK    {stats['disk_label']}", app.font, FG)
 
-        draw_label(draw, left, bottom - 14, "ESC BACK  W WIRELESS", app.font, DIM)
-
-    def _render_wireless_detail(self, draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
-        app = self.context.app
-        wifi_status = app.wifi.status(allow_refresh=not app.input_render_pending)
-        stats = app.system_snapshot()
-        ip_addr = str(stats.get("ip_address", "offline"))
-        wifi_connected = wifi_status.connected or (ip_addr not in ("offline", ""))
-        wifi_ssid = wifi_status.ssid or (ip_addr if wifi_connected else wifi_status.state)
-        wifi_sig = wifi_status.signal if wifi_status.connected else (75 if wifi_connected else 0)
-        bounds = draw_detail_frame(draw, width, height, title="WIRELESS", font=app.font, color=COOL, side_bar_width=app.side_bar_width)
-        left, top, right, bottom = bounds
-
-        # Current connection status
-        ssid_text = wifi_ssid.upper()
-        draw_label(draw, left, top, self._trim(f"NET {ssid_text}", 28), app.font, FG)
-        draw_segmented_bar(draw, left, top + 16, 72, wifi_sig / 100.0, segments=7, color=INFO if wifi_connected else DIM)
-        draw_label(draw, left + 80, top + 14, f"{wifi_sig:>3}%", app.font, INFO if wifi_connected else DIM)
-        state_label = "CONNECTED" if wifi_connected else wifi_status.state.upper()
-        draw_label(draw, left + 126, top + 14, self._trim(state_label, 12), app.font, ACCENT if wifi_connected else DIM)
-
-        # Password entry mode
-        if self.entering_password and self.password_target is not None:
-            draw_label(draw, left, top + 36, f"PASSWORD FOR {self._trim(self.password_target.ssid.upper(), 16)}", app.font, WARN)
-            masked = "*" * min(len(self.password_entry), 20)
-            draw_label(draw, left, top + 54, f"> {masked}_", app.font, FG)
-            draw_label(draw, left, bottom - 14, "ENTER JOIN  BACKSPACE DEL  ESC CANCEL", app.font, DIM)
-            return
-
-        # Network roster (scrollable)
-        roster_top = top + 36
-        roster_bottom = bottom - 18
-        visible_lines = max(1, (roster_bottom - roster_top) // 14)
-
-        if not self.networks:
-            draw_label(draw, left, roster_top, "NO NETWORKS  PRESS R TO SCAN", app.font, DIM)
-        else:
-            scroll_offset = max(0, self.selected_index - visible_lines + 2)
-            scroll_offset = min(scroll_offset, max(0, len(self.networks) - visible_lines))
-            for i, network in enumerate(self.networks[scroll_offset:scroll_offset + visible_lines]):
-                actual_index = scroll_offset + i
-                y = roster_top + i * 14
-                selected = actual_index == self.selected_index
-                marker = ">" if selected else " "
-                active = "*" if network.active else " "
-                security = "OPEN" if network.open else "LOCK"
-                line = f"{marker}{active}{self._trim(network.ssid.upper(), 16):16s} {network.signal:>3}% {security}"
-                color = FG if selected else DIM
-                draw_label(draw, left, y, line, app.font, color)
-            # Scroll indicator
-            if len(self.networks) > visible_lines:
-                draw_label(draw, right - 40, roster_top, f"{self.selected_index + 1}/{len(self.networks)}", app.font, DIM)
-
-        # Footer hints
-        draw_label(draw, left, bottom - 14, "UP/DN NAV  R SCAN  ENTER JOIN  ESC BACK", app.font, DIM)
+        draw_label(draw, left, bottom - 14, "ESC BACK", app.font, DIM)
 
     def _render_rig_detail(self, draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
         app = self.context.app
@@ -404,6 +348,115 @@ class SystemScreen(Screen):
 
         draw_label(draw, left, bottom - 14, "+/- VOL  M MUTE  L LED  ESC BACK", app.font, DIM)
 
+    def _render_wifi_detail(self, draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
+        app = self.context.app
+        bounds = draw_detail_frame(draw, width, height, title="WIFI", font=app.font, color=INFO, side_bar_width=app.side_bar_width)
+        left, top, right, bottom = bounds
+        if self.wifi_state == "roster":
+            self._render_wifi_roster(draw, left, top, right, bottom)
+        elif self.wifi_state == "password":
+            self._render_wifi_password(draw, left, top, right, bottom)
+        elif self.wifi_state == "connecting":
+            self._render_wifi_connecting(draw, left, top, right, bottom)
+        elif self.wifi_state == "result":
+            self._render_wifi_result(draw, left, top, right, bottom)
+
+    def _render_wifi_roster(self, draw: ImageDraw.ImageDraw, left: int, top: int, right: int, bottom: int) -> None:
+        app = self.context.app
+        networks = self.wifi_networks
+        count = len(networks)
+        draw_label(draw, left, top, f"NETWORKS ({count})", app.font, INFO)
+        visible = 7
+        row_h = 18
+        list_top = top + 20
+        max_ssid = max(1, (right - left - 80) // 7)
+        if count == 0:
+            draw_label(draw, left, list_top + 10, "NO NETWORKS FOUND", app.font, DIM)
+            draw_label(draw, left, list_top + 28, "R TO RESCAN", app.font, DIM)
+        else:
+            scroll = max(0, min(self.wifi_selection - visible // 2, count - visible))
+            for i in range(visible):
+                idx = scroll + i
+                if idx >= count:
+                    break
+                net = networks[idx]
+                y = list_top + i * row_h
+                selected = idx == self.wifi_selection
+                if selected:
+                    draw.rectangle((left - 2, y - 1, right + 2, y + row_h - 3), outline=INFO)
+                # Signal bar (4 segments)
+                sig_pct = net.signal / 100.0
+                draw_segmented_bar(draw, left, y + 2, 28, sig_pct, segments=4, color=INFO)
+                # SSID
+                ssid_display = self._trim(net.ssid, max_ssid)
+                draw_label(draw, left + 34, y, ssid_display, app.font, FG if selected else DIM)
+                # Known indicator
+                if net.known:
+                    draw_status_dot(draw, right - 30, y + 3, True, ACCENT)
+                # Lock indicator for secured networks
+                if not net.open:
+                    draw_label(draw, right - 16, y, "L", app.font, DIM)
+            # Scroll arrows
+            if scroll > 0:
+                draw_label(draw, right - 8, list_top - 2, "^", app.font, DIM)
+            if scroll + visible < count:
+                draw_label(draw, right - 8, list_top + visible * row_h - 4, "v", app.font, DIM)
+
+        draw_label(draw, left, bottom - 14, "UP/DN SEL  ENTER JOIN  R SCAN  ESC", app.font, DIM)
+
+    def _render_wifi_password(self, draw: ImageDraw.ImageDraw, left: int, top: int, right: int, bottom: int) -> None:
+        app = self.context.app
+        net = self.wifi_networks[self.wifi_selection] if self.wifi_selection < len(self.wifi_networks) else None
+        ssid = net.ssid if net else "?"
+        draw_label(draw, left, top, "AUTHENTICATE", app.font, INFO)
+        draw_label(draw, left, top + 22, self._trim(ssid, 24), app.font, FG)
+        # Password field
+        y = top + 48
+        if self.wifi_password_visible:
+            display = self.wifi_password
+        else:
+            display = "*" * len(self.wifi_password)
+        field_width = right - left
+        draw.rectangle((left - 2, y - 2, left + field_width + 2, y + 16), outline=INFO)
+        draw_label(draw, left + 2, y + 1, self._trim(display or " ", max(1, field_width // 7 - 1)), app.font, FG)
+        draw_label(draw, left, y + 22, f"{len(self.wifi_password)} CHARS", app.font, DIM)
+        vis_label = "VISIBLE" if self.wifi_password_visible else "HIDDEN"
+        draw_label(draw, left + 80, y + 22, vis_label, app.font, DIM)
+
+        draw_label(draw, left, bottom - 14, "TAB VIS  ENTER OK  ESC CANCEL", app.font, DIM)
+
+    def _render_wifi_connecting(self, draw: ImageDraw.ImageDraw, left: int, top: int, right: int, bottom: int) -> None:
+        import time as _time
+        app = self.context.app
+        dots = "." * (int(_time.monotonic() * 3) % 4)
+        net = self.wifi_networks[self.wifi_selection] if self.wifi_selection < len(self.wifi_networks) else None
+        ssid = net.ssid if net else "?"
+        draw_label(draw, left, top, f"CONNECTING{dots}", app.font, INFO)
+        draw_label(draw, left, top + 24, self._trim(ssid, 24), app.font, FG)
+
+        draw_label(draw, left, bottom - 14, "ESC CANCEL", app.font, DIM)
+
+    def _render_wifi_result(self, draw: ImageDraw.ImageDraw, left: int, top: int, right: int, bottom: int) -> None:
+        app = self.context.app
+        success = getattr(self, "_wifi_result_success", False)
+        message = getattr(self, "_wifi_result_message", "")
+        net = self.wifi_networks[self.wifi_selection] if self.wifi_selection < len(self.wifi_networks) else None
+        ssid = net.ssid if net else "?"
+        if success:
+            draw_label(draw, left, top, "CONNECTED", app.font, ACCENT)
+            draw_status_dot(draw, left, top + 22, True, ACCENT)
+            draw_label(draw, left + 14, top + 20, self._trim(ssid, 20), app.font, FG)
+            if message:
+                draw_label(draw, left, top + 42, self._trim(f"IP {message}", 28), app.font, FG)
+        else:
+            draw_label(draw, left, top, "FAILED", app.font, WARN)
+            draw_status_dot(draw, left, top + 22, False, WARN)
+            draw_label(draw, left + 14, top + 20, self._trim(ssid, 20), app.font, FG)
+            if message:
+                draw_label(draw, left, top + 42, self._trim(message.upper(), 28), app.font, WARN)
+
+        draw_label(draw, left, bottom - 14, "ANY KEY TO CONTINUE", app.font, DIM)
+
     # ── Input Handling ─────────────────────────────────────────
 
     def on_button(self, slot: str, long_press: bool) -> bool:
@@ -431,43 +484,12 @@ class SystemScreen(Screen):
         return False
 
     def _on_detail_button(self, slot: str, long_press: bool) -> bool:
-        if self.detail_active == "wireless":
-            return self._on_wireless_detail_button(slot, long_press)
         if self.detail_active == "cues":
             return self._on_cues_detail_button(slot, long_press)
+        if self.detail_active == "wifi":
+            return self._on_wifi_detail_button(slot, long_press)
         if slot == RIGHT_BOTTOM:
             self._leave_detail()
-            return True
-        return False
-
-    def _on_wireless_detail_button(self, slot: str, long_press: bool) -> bool:
-        if self.entering_password:
-            if slot == LEFT_TOP and self.password_entry:
-                self.password_entry = self.password_entry[:-1]
-                self.status_line = "deleted"
-                return True
-            if slot == LEFT_BOTTOM:
-                self.password_entry += " "
-                self.status_line = "space"
-                return True
-            if slot == RIGHT_TOP:
-                self._cancel_password_entry()
-                return True
-            if slot == RIGHT_BOTTOM:
-                self._submit_password_entry()
-                return True
-            return False
-        if slot == RIGHT_BOTTOM:
-            self._leave_detail()
-            return True
-        if slot == RIGHT_TOP:
-            self._enter_wifi_config(force_scan=True)
-            return True
-        if slot == LEFT_TOP:
-            self._select_wifi_network(-1)
-            return True
-        if slot == LEFT_BOTTOM:
-            self._select_wifi_network(1)
             return True
         return False
 
@@ -515,56 +537,18 @@ class SystemScreen(Screen):
         if panel is not None:
             self.detail_active = panel
             self.detail_scroll = 0
-            if panel == "wireless":
-                self._enter_wifi_config(force_scan=True)
+            if panel == "wifi":
+                self._open_wifi_detail()
             return True
         return False
 
     def _on_detail_key(self, event: KeyboardEvent) -> bool:
-        if self.detail_active == "wireless":
-            return self._on_wireless_detail_key(event)
         if self.detail_active == "cues":
             return self._on_cues_detail_key(event)
+        if self.detail_active == "wifi":
+            return self._on_wifi_detail_key(event)
         if event.key == "escape":
             self._leave_detail()
-            return True
-        return False
-
-    def _on_wireless_detail_key(self, event: KeyboardEvent) -> bool:
-        if self.entering_password:
-            if event.key == "escape":
-                self._cancel_password_entry()
-                return True
-            if event.key == "backspace":
-                if self.password_entry:
-                    self.password_entry = self.password_entry[:-1]
-                self.status_line = "password edit"
-                return True
-            if event.key == "enter":
-                self._submit_password_entry()
-                return True
-            if event.text and not event.ctrl and not event.alt:
-                self.password_entry += event.text
-                self.status_line = f"password {len(self.password_entry)} chars"
-                return True
-            return False
-        if event.key == "escape":
-            self._leave_detail()
-            return True
-        if event.key in {"up", "k"}:
-            self._select_wifi_network(-1)
-            return True
-        if event.key in {"down", "j"}:
-            self._select_wifi_network(1)
-            return True
-        if event.key == "r":
-            self._enter_wifi_config(force_scan=True)
-            return True
-        if event.key == "enter":
-            if self.networks:
-                self._connect_selected_network()
-            else:
-                self.status_line = "no wifi networks"
             return True
         return False
 
@@ -612,29 +596,148 @@ class SystemScreen(Screen):
             return True
         return False
 
+    def _open_wifi_detail(self) -> None:
+        self.wifi_state = "roster"
+        self.wifi_selection = 0
+        self.wifi_password = ""
+        self.wifi_password_visible = False
+        app = self.context.app
+        self.wifi_networks = app.wifi.scan(force=True)
+
+    def _on_wifi_detail_button(self, slot: str, long_press: bool) -> bool:
+        if self.wifi_state == "roster":
+            if slot == LEFT_TOP:
+                self._wifi_move_selection(-1)
+                return True
+            if slot == LEFT_BOTTOM:
+                self._wifi_move_selection(1)
+                return True
+            if slot == RIGHT_TOP:
+                self._wifi_activate_selected()
+                return True
+            if slot == RIGHT_BOTTOM:
+                self._leave_detail()
+                return True
+        elif self.wifi_state == "password":
+            if slot == LEFT_TOP:
+                self.wifi_password = self.wifi_password[:-1]
+                return True
+            if slot == LEFT_BOTTOM:
+                self.wifi_password += " "
+                return True
+            if slot == RIGHT_TOP:
+                self._wifi_submit_password()
+                return True
+            if slot == RIGHT_BOTTOM:
+                self.wifi_state = "roster"
+                self.wifi_password = ""
+                return True
+        elif self.wifi_state == "connecting":
+            if slot == RIGHT_BOTTOM:
+                self.wifi_state = "roster"
+                self.context.app.wifi.reset_connect()
+                return True
+        elif self.wifi_state == "result":
+            self.wifi_state = "roster"
+            self.context.app.wifi.reset_connect()
+            return True
+        return False
+
+    def _on_wifi_detail_key(self, event: KeyboardEvent) -> bool:
+        if self.wifi_state == "roster":
+            return self._on_wifi_roster_key(event)
+        if self.wifi_state == "password":
+            return self._on_wifi_password_key(event)
+        if self.wifi_state == "connecting":
+            if event.key == "escape":
+                self.wifi_state = "roster"
+                self.context.app.wifi.reset_connect()
+                return True
+            return True
+        if self.wifi_state == "result":
+            self.wifi_state = "roster"
+            self.context.app.wifi.reset_connect()
+            return True
+        return False
+
+    def _on_wifi_roster_key(self, event: KeyboardEvent) -> bool:
+        if event.key == "escape":
+            self._leave_detail()
+            return True
+        if event.key == "up":
+            self._wifi_move_selection(-1)
+            return True
+        if event.key == "down":
+            self._wifi_move_selection(1)
+            return True
+        if event.key == "enter":
+            self._wifi_activate_selected()
+            return True
+        if event.key == "r":
+            self.wifi_networks = self.context.app.wifi.scan(force=True)
+            self.wifi_selection = 0
+            return True
+        return False
+
+    def _on_wifi_password_key(self, event: KeyboardEvent) -> bool:
+        if event.key == "escape":
+            self.wifi_state = "roster"
+            self.wifi_password = ""
+            return True
+        if event.key == "tab":
+            self.wifi_password_visible = not self.wifi_password_visible
+            return True
+        if event.key == "enter":
+            self._wifi_submit_password()
+            return True
+        if event.key == "backspace":
+            self.wifi_password = self.wifi_password[:-1]
+            return True
+        if event.text and not event.ctrl and not event.alt:
+            self.wifi_password += event.text
+            return True
+        return True  # consume all keys in password mode
+
+    def _wifi_move_selection(self, delta: int) -> None:
+        count = len(self.wifi_networks)
+        if count == 0:
+            return
+        self.wifi_selection = max(0, min(count - 1, self.wifi_selection + delta))
+
+    def _wifi_activate_selected(self) -> None:
+        if not self.wifi_networks:
+            return
+        if self.wifi_selection >= len(self.wifi_networks):
+            return
+        net = self.wifi_networks[self.wifi_selection]
+        if net.known or net.open:
+            self.wifi_state = "connecting"
+            self.context.app.wifi.connect_async(net.ssid)
+        else:
+            self.wifi_state = "password"
+            self.wifi_password = ""
+            self.wifi_password_visible = False
+
+    def _wifi_submit_password(self) -> None:
+        if not self.wifi_password:
+            return
+        if self.wifi_selection >= len(self.wifi_networks):
+            return
+        net = self.wifi_networks[self.wifi_selection]
+        self.wifi_state = "connecting"
+        self.context.app.wifi.connect_async(net.ssid, self.wifi_password)
+
     def _leave_detail(self) -> None:
         self.detail_active = None
         self.detail_scroll = 0
-        self.password_target = None
-        self.password_entry = ""
-        self.status_line = "W wireless  C core  L link"
+        self.wifi_state = "roster"
+        self.wifi_selection = 0
+        self.wifi_password = ""
+        self.wifi_password_visible = False
+        self.status_line = "C core  W wifi  R rig"
         self.invalidate_background()
 
     def get_button_hints(self) -> dict[str, str]:
-        if self.detail_active == "wireless":
-            if self.entering_password:
-                return {
-                    LEFT_TOP: "del",
-                    LEFT_BOTTOM: "spc",
-                    RIGHT_TOP: "cancel",
-                    RIGHT_BOTTOM: "join",
-                }
-            return {
-                LEFT_TOP: "prev",
-                LEFT_BOTTOM: "next",
-                RIGHT_TOP: "scan",
-                RIGHT_BOTTOM: "back",
-            }
         if self.detail_active == "cues":
             return {
                 LEFT_TOP: "vol-",
@@ -642,6 +745,15 @@ class SystemScreen(Screen):
                 RIGHT_TOP: "mute",
                 RIGHT_BOTTOM: "back",
             }
+        if self.detail_active == "wifi":
+            if self.wifi_state == "roster":
+                return {LEFT_TOP: "up", LEFT_BOTTOM: "down", RIGHT_TOP: "join", RIGHT_BOTTOM: "back"}
+            if self.wifi_state == "password":
+                return {LEFT_TOP: "del", LEFT_BOTTOM: "spc", RIGHT_TOP: "ok", RIGHT_BOTTOM: "cancel"}
+            if self.wifi_state == "connecting":
+                return {LEFT_TOP: "-", LEFT_BOTTOM: "-", RIGHT_TOP: "-", RIGHT_BOTTOM: "cancel"}
+            if self.wifi_state == "result":
+                return {LEFT_TOP: "-", LEFT_BOTTOM: "-", RIGHT_TOP: "-", RIGHT_BOTTOM: "ok"}
         if self.detail_active is not None:
             return {
                 LEFT_TOP: "-",
@@ -655,88 +767,6 @@ class SystemScreen(Screen):
             RIGHT_TOP: "home",
             RIGHT_BOTTOM: "detail",
         }
-
-    # ── WiFi Helpers ───────────────────────────────────────────
-
-    def _enter_wifi_config(self, *, force_scan: bool = False) -> None:
-        selected_network = self._selected_network()
-        selected_ssid = selected_network.ssid if selected_network is not None else None
-        self.networks = self.context.app.wifi.scan(force=force_scan)
-        self._sync_wifi_selection(preferred_ssid=selected_ssid, prefer_active=force_scan)
-        self.status_line = self.context.app.wifi.last_message
-        self._refresh_elapsed = 0.0
-
-    def _select_wifi_network(self, delta: int) -> None:
-        if not self.networks:
-            self.status_line = "no wifi networks"
-            return
-        self.selected_index = (self.selected_index + delta) % len(self.networks)
-        network = self.networks[self.selected_index]
-        self.status_line = f"{self.selected_index + 1}/{len(self.networks)} selected {network.ssid}"
-
-    def _connect_selected_network(self) -> None:
-        self._sync_wifi_selection(prefer_active=False)
-        if not self.networks:
-            self.status_line = "no wifi networks"
-            return
-        network = self.networks[self.selected_index]
-        if network.open:
-            connected, message = self.context.app.wifi.connect(network)
-            self.status_line = message
-            self.context.app.accents.trigger("wifi_success" if connected else "wifi_error")
-            return
-        if network.ssid in self.context.app.wifi.passwords:
-            connected, message = self.context.app.wifi.connect(network)
-            self.status_line = message
-            self.context.app.accents.trigger("wifi_success" if connected else "wifi_error")
-            if connected:
-                return
-        self.password_target = network
-        self.password_entry = ""
-        self.status_line = f"password for {network.ssid[:8]}"
-
-    def _submit_password_entry(self) -> None:
-        network = self.password_target
-        if network is None:
-            return
-        if not self.password_entry:
-            self.status_line = "password required"
-            self.context.app.accents.trigger("error")
-            return
-        connected, message = self.context.app.wifi.connect(network, password=self.password_entry)
-        self.status_line = message
-        self.context.app.accents.trigger("wifi_success" if connected else "wifi_error")
-        if connected:
-            self.password_target = None
-            self.password_entry = ""
-
-    def _cancel_password_entry(self) -> None:
-        self.password_target = None
-        self.password_entry = ""
-        self.status_line = "wifi connect canceled"
-
-    def _selected_network(self) -> WifiNetwork | None:
-        if not self.networks:
-            return None
-        if self.selected_index < 0 or self.selected_index >= len(self.networks):
-            return None
-        return self.networks[self.selected_index]
-
-    def _sync_wifi_selection(self, *, preferred_ssid: str | None = None, prefer_active: bool = True) -> None:
-        if not self.networks:
-            self.selected_index = 0
-            return
-        if prefer_active:
-            for index, network in enumerate(self.networks):
-                if network.active:
-                    self.selected_index = index
-                    return
-        if preferred_ssid:
-            for index, network in enumerate(self.networks):
-                if network.ssid == preferred_ssid:
-                    self.selected_index = index
-                    return
-        self.selected_index = min(max(self.selected_index, 0), len(self.networks) - 1)
 
     # ── Drawing Helpers ────────────────────────────────────────
 

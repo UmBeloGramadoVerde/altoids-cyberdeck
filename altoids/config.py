@@ -63,8 +63,7 @@ class SystemConfig:
 
 @dataclass(slots=True)
 class WifiConfig:
-    scan_cache_seconds: float = 15.0
-    passwords: dict[str, str] = field(default_factory=dict)
+    scan_cache_seconds: float = 30.0
 
 
 @dataclass(slots=True)
@@ -76,7 +75,6 @@ class AudioConfig:
     cue_screen_change: bool = True
     cue_wake: bool = True
     cue_boot: bool = True
-    cue_wifi: bool = True
     cue_error: bool = True
 
 
@@ -111,10 +109,10 @@ class AltoidsConfig:
     ui: UIConfig = field(default_factory=UIConfig)
     terminal: TerminalConfig = field(default_factory=TerminalConfig)
     system: SystemConfig = field(default_factory=SystemConfig)
-    wifi: WifiConfig = field(default_factory=WifiConfig)
     audio: AudioConfig = field(default_factory=AudioConfig)
     led: LedConfig = field(default_factory=LedConfig)
     voice: VoiceConfig = field(default_factory=VoiceConfig)
+    wifi: WifiConfig = field(default_factory=WifiConfig)
 
     @property
     def font_path(self) -> Path:
@@ -179,14 +177,14 @@ def load_config(path: str | Path | None = None) -> AltoidsConfig:
         config.terminal = _merge_dataclass(config.terminal, payload["terminal"])
     if "system" in payload:
         config.system = _merge_dataclass(config.system, payload["system"])
-    if "wifi" in payload:
-        config.wifi = _merge_dataclass(config.wifi, payload["wifi"])
     if "audio" in payload:
         config.audio = _merge_dataclass(config.audio, payload["audio"])
     if "led" in payload:
         config.led = _merge_dataclass(config.led, payload["led"])
     if "voice" in payload:
         config.voice = _merge_dataclass(config.voice, payload["voice"])
+    if "wifi" in payload:
+        config.wifi = _merge_dataclass(config.wifi, payload["wifi"])
     return config
 
 

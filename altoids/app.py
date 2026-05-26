@@ -148,10 +148,6 @@ class AltoidsApp:
             config.codex_home_path,
             scan_limit=config.terminal.codex_scan_limit,
         )
-        self.wifi = WifiManager(
-            passwords=dict(config.wifi.passwords),
-            scan_cache_seconds=config.wifi.scan_cache_seconds,
-        )
         self.notes = NoteStore(config.state_dir)
         self.button_input = ButtonInput(self.handle_button_event, display=self.display)
         self.keyboard_input = KeyboardInput()
@@ -160,6 +156,7 @@ class AltoidsApp:
         self.sleep_manager = SleepManager(config.sleep.idle_seconds)
         self.accents = AccentManager(self.display, config.audio, config.led)
         self.voice = VoiceManager(config.voice, enabled=config.voice.enabled and self.display.is_whisplay)
+        self.wifi = WifiManager(scan_cache_seconds=config.wifi.scan_cache_seconds)
         self.screen_order = ["home", "notes", "emu", "term", "system"]
         context = ScreenContext(app=self)
         self._screen_context = context
@@ -627,16 +624,13 @@ class AltoidsApp:
                     ("expand core panel", "C"),
                     ("expand load panel", "O"),
                     ("expand link panel", "L"),
-                    ("expand wireless", "W"),
+                    ("expand wifi panel", "W"),
                     ("expand rig panel", "R"),
                     ("expand cues panel", "U"),
                     ("back to overview", "Detail: Esc"),
-                    ("wifi pick network", "Wireless: Up/Down"),
-                    ("wifi scan", "Wireless: R"),
-                    ("wifi join", "Wireless: Enter"),
-                    ("wifi password", "Pass: text keys"),
-                    ("password join", "Pass: Enter"),
-                    ("password cancel", "Pass: Esc"),
+                    ("scroll network list", "WiFi: Up/Down"),
+                    ("connect to network", "WiFi: Enter"),
+                    ("rescan networks", "WiFi: R"),
                     ("volume +/-", "Cues: Up/Down +/-"),
                     ("toggle mute", "Cues: M"),
                     ("toggle led", "Cues: L"),
@@ -888,6 +882,7 @@ class AltoidsApp:
                         if flip != self.display._flip_180:
                             self.display.set_flip_180(flip)
                             self.needs_redraw = True
+                    self.wifi.poll()
                 if self.command_mode_deadline and not self.command_mode_active:
                     self.command_mode_deadline = 0.0
                     self.needs_redraw = True

@@ -35,17 +35,17 @@ class AccentManager:
         "boot_complete": 1.0,
         "wake": 0.5,
         "screen_change": 0.15,
-        "wifi_success": 0.5,
-        "wifi_error": 0.5,
         "error": 0.4,
+        "wifi_success": 1.0,
+        "wifi_error": 1.0,
     }
     _LED_COLORS = {
         "boot_complete": (92, 208, 148),
         "wake": (240, 118, 27),
         "screen_change": (92, 208, 148),
-        "wifi_success": (92, 208, 148),
-        "wifi_error": (240, 118, 27),
         "error": (240, 118, 27),
+        "wifi_success": (93, 186, 180),
+        "wifi_error": (240, 118, 27),
     }
 
     def __init__(self, display: Display, audio_config: AudioConfig, led_config: LedConfig) -> None:
@@ -166,9 +166,9 @@ class AccentManager:
             "boot_complete": self.audio_config.cue_boot,
             "wake": self.audio_config.cue_wake,
             "screen_change": self.audio_config.cue_screen_change,
-            "wifi_success": self.audio_config.cue_wifi,
-            "wifi_error": self.audio_config.cue_wifi,
             "error": self.audio_config.cue_error,
+            "wifi_success": self.audio_config.cue_screen_change,
+            "wifi_error": self.audio_config.cue_error,
         }.get(cue, True)
 
     def _probe_audio(self, card: str) -> tuple[bool, str, str]:
@@ -212,9 +212,9 @@ class AccentManager:
             "boot_complete": [(620, 90, 0.35), (0, 30, 0.0), (880, 120, 0.38)],
             "wake": [(880, 70, 0.25)],
             "screen_change": [(740, 28, 0.12)],
-            "wifi_success": [(660, 70, 0.28), (820, 90, 0.30)],
-            "wifi_error": [(520, 80, 0.28), (360, 120, 0.22)],
             "error": [(480, 120, 0.26)],
+            "wifi_success": [(660, 80, 0.25), (0, 20, 0.0), (880, 100, 0.30)],
+            "wifi_error": [(440, 100, 0.28), (0, 20, 0.0), (330, 140, 0.30)],
         }
         for cue, segments in tones.items():
             path = self._audio_cache_dir / f"{cue}.wav"

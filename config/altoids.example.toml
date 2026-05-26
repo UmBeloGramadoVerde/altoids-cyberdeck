@@ -38,9 +38,6 @@ codex_scan_limit = 24
 [system]
 temperature_warn_c = 70.0
 
-[wifi]
-scan_cache_seconds = 15.0
-
 [audio]
 enabled = true
 card = "wm8960soundcard"
@@ -49,7 +46,6 @@ muted = false
 cue_screen_change = true
 cue_wake = true
 cue_boot = true
-cue_wifi = true
 cue_error = true
 
 [led]
@@ -71,4 +67,6 @@ prompt = ""
 audio_device = ""
 sample_rate = 16000
 
-[wifi.passwords]
+[wifi]
+scan_cache_seconds = 30.0
+
